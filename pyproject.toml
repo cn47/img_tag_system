@@ -1,0 +1,85 @@
+
+[project]
+name = "image-tagger"
+version = "0.1.0"
+description = "Image Management System powered by image tagging model"
+authors = [{ name = "cn47" }]
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+keywords = ["image-classification", "vlm", "camie", "tagger", "ml"]
+
+
+# ================================
+# Dependencies
+# ================================
+dependencies = [
+    "onnxruntime-gpu>=1.17.0", # ONNX 推論
+    "torch>=2.0.0", # （必要なら）補助的なテンソル演算
+    "torchvision>=0.15.0", # 前処理に使用
+    "pillow>=11.2.0", # 画像読み込み
+    "numpy>=1.26.0", # 数値処理
+    "transformers==4.39.3", # （将来の）テキスト・画像モデル
+    "huggingface-hub==0.19.4", # モデル取得
+    "fire>=0.7.1", # CLI 実装
+    "duckdb>=1.4.2", # 結果保存・クエリ
+    "pandas>=2.3.3",
+    "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3.5",
+  "ruff>=0.11.8",
+  "ipython>=8.15.0",
+]
+# viz = [
+#     "matplotlib==3.10.1",
+#     "plotly>=6.0.1",
+#     "kaleido==0.2.0",
+# ]
+# docs = [
+#     "mkdocs>=1.6.1",
+#     "mkdocs-material>=9.6.12",
+#     "mkdocstrings>=0.29.1",
+# ]
+
+
+# ================================
+# Ruff
+# ================================
+[tool.ruff]
+fix = false
+unfixable = [
+  "ERA", # do not autoremove commented out code
+]
+line-length = 120
+target-version = "py312"
+ignore-init-module-imports = true
+extend-select = [
+  "B",   # flake8-bugbear
+  "C4",  # flake8-comprehensions
+  "ERA", # flake8-eradicate/eradicate
+  "I",   # isort
+  "PIE", # flake8-pie
+  "PGH", # pygrep
+  "RUF", # ruff checks
+  "SIM", # flake8-simplify
+  "TCH", # flake8-type-checking
+  "TID", # flake8-tidy-imports
+  "UP",  # pyupgrade
+]
+
+[tool.ruff.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.pydocstyle]
+convention = "google"
+
+[tool.ruff.isort]
+force-single-line = false
+lines-between-types = 1
+lines-after-imports = 2
+# known-first-party = [""]
+# known-third-party = [""]
+# required-imports = ["from __future__ import annotations"]
