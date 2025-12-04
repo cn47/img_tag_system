@@ -3,6 +3,7 @@ from logging import getLogger
 from pathlib import Path
 
 from tqdm import tqdm
+from typing_extensions import deprecated
 
 from application.inference.tag_types import TaggerResult
 from application.inference.tagger import Tagger
@@ -16,17 +17,22 @@ from exceptions import DuplicateImageError, ImageNotFoundError, TaggingError, Un
 logger = getLogger(__name__)
 
 
-class NewImageRegisterService(Tagger):
+class NewImageRegisterService:
     """新規画像登録サービス"""
 
     def __init__(self, images_repo: ImagesRepository, model_tag_repo: ModelTagRepository, tagger: Tagger) -> None:
+        """NewImageRegisterServiceを初期化する
+
+        Args:
+            images_repo(ImagesRepository): 画像リポジトリ
+            model_tag_repo(ModelTagRepository): モデルタグリポジトリ
+            tagger(Tagger): タグ付けモデル
+        """
         self.images_repo = images_repo
         self.model_tag_repo = model_tag_repo
         self.tagger = tagger
 
-        self.tagger.initialize()
-        logger.info("Service initialized!")
-
+    @deprecated("Use register instead")
     def register_one(self, image_file: str) -> None:
         """1枚の画像を登録する
 
@@ -39,7 +45,7 @@ class NewImageRegisterService(Tagger):
             TaggingError: タグ付けに失敗した場合
             UnsupportedFileTypeError: サポートされていないファイル形式の画像があった場合
         """
-        logger.info(f"Registering image: {image_file}...")
+        logger.info("Registering image: %s...", image_file)
 
         image_entry = ImageEntry.from_file(image_file=Path(image_file))
         # images table insert
@@ -64,7 +70,7 @@ class NewImageRegisterService(Tagger):
         model_tag_entries = ModelTagEntries.from_tagger_result(image_id=image_id, tags=tagger_result)
         self.model_tag_repo.insert(model_tag_entries)
 
-        logger.info(f"Registering one image completed: {image_file}")
+        logger.info("Registering one image completed: %s", image_file)
 
     def _exclude_existing_image_entries(self, image_entries: list[ImageEntry]) -> list[ImageEntry]:
         """画像のエントリーリストからすでに存在する画像を除外する。
@@ -102,9 +108,9 @@ class NewImageRegisterService(Tagger):
                 try:
                     tagger_results[i] = future.result()
                 except UnsupportedFileTypeError as e:
-                    logger.warning(f"skipped: Unsupported file type: {image_entries[i].file_location}: {e}")
+                    logger.warning("skipped: Unsupported file type: %s: %s", image_entries[i].file_location, e)
                 except TaggingError as e:
-                    logger.warning(f"skipped: Tagging failed for {image_entries[i].file_location}: {e}")
+                    logger.warning("skipped: Tagging failed for %s: %s", image_entries[i].file_location, e)
 
         return tagger_results
 
@@ -119,7 +125,7 @@ class NewImageRegisterService(Tagger):
             UnsupportedFileTypeError: サポートされていないファイル形式の画像があった場合
             TaggingError: タグ付けに失敗した場合
         """
-        logger.info(f"total input image files: {len(image_files)}")
+        logger.info("total input image files: %d", len(image_files))
 
         image_entries = [ImageEntry.from_file(image_file=Path(image_file)) for image_file in image_files]
         image_entries = self._exclude_existing_image_entries(image_entries)
@@ -142,5 +148,5 @@ class NewImageRegisterService(Tagger):
         ]
         self.model_tag_repo.insert(model_tag_entries_list)
 
-        logger.info(f"total registered images: {len(image_ids)}")
-        logger.info(f"total registered model_tag_entries: {len(model_tag_entries_list)}")
+        logger.info("total registered images: %d", len(image_ids))
+        logger.info("total registered model_tag_entries: %d", len(model_tag_entries_list))

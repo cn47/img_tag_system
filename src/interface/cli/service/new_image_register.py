@@ -4,6 +4,8 @@ import logging
 
 import duckdb
 
+from typing_extensions import deprecated
+
 from application.inference.camie_v2 import CamieTaggerV2
 from application.service.new_image_register import NewImageRegisterService
 from config import DATABASE_FILE
@@ -21,21 +23,27 @@ class RegisterCLI:
 
     def __init__(self) -> None:
         conn = duckdb.connect(DATABASE_FILE)
+        tagger = CamieTaggerV2(threshold=0.0)
+        tagger.initialize()
 
         self.file_system = LocalFileSystem()
         self.service = NewImageRegisterService(
             images_repo=DuckDBImagesRepository(conn=conn),
             model_tag_repo=DuckDBModelTagRepository(conn=conn, model_name=ModelName.CAMIE_V2),
-            tagger=CamieTaggerV2(threshold=0.0),
+            tagger=tagger,
         )
 
+    @deprecated("Use register instead.")
     def image(self, image_file: str) -> None:
-        """1枚の画像を登録する"""
+        """1枚の画像を登録する.
+
+        TODO: メソッドの整理をする。handleとかrunとかでも良さそう
+        """
         self.service.register_one(image_file)
 
     def images(self, image_dir: str, n_workers: int = 8, recursive: bool = False) -> None:
         """画像ディレクトリ内のすべての画像を登録する"""
-        image_files = self.file_system.get_files(image_dir, recursive=recursive)
+        image_files = self.file_system.list_files(image_dir, recursive=recursive)
         self.service.register_many(image_files, n_workers=n_workers)
 
 
