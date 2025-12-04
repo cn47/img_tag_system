@@ -11,19 +11,21 @@ import onnxruntime
 from PIL import Image, UnidentifiedImageError
 from torchvision import transforms
 
-from application.inference.tag_types import TaggerResult
-from application.inference.tagger import Tagger
-from config import MODEL_DIR
-from exceptions import TaggingError, UnsupportedFileTypeError
+from application.config.app_config import CamieV2TaggerModelConfig
+from common.exceptions import TaggingError, UnsupportedFileTypeError
+from domain.tagger.result import TaggerResult
+from domain.tagger.tagger import Tagger
+from infrastructure.registries import TaggerAdapterRegistry
 
 
+@TaggerAdapterRegistry.register("camie_v2")
 class CamieTaggerV2(Tagger):
     """タグ付けモデルによる画像のタグ推論とカテゴリ分類を行うクラス
 
     モデルについて: Camais03/camie-tagger-v2 · Hugging Face](https://huggingface.co/Camais03/camie-tagger-v2)
     """
 
-    def __init__(self, threshold: float = 0.5) -> None:
+    def __init__(self, model_dir: str | Path, threshold: float = 0.5) -> None:
         """初期化
 
         Args:
@@ -46,14 +48,17 @@ class CamieTaggerV2(Tagger):
 
         """
         self.threshold = threshold
-
-        self.model_file: Final[Path] = MODEL_DIR / "camie-tagger-v2.onnx"
-        self.metadata_file: Final[Path] = MODEL_DIR / "camie-tagger-v2-metadata.json"
+        self.model_file: Final[Path] = Path(model_dir) / "camie-tagger-v2.onnx"
+        self.metadata_file: Final[Path] = Path(model_dir) / "camie-tagger-v2-metadata.json"
 
         self.tag_to_idx: dict = {}
         self.tag_to_category: dict = {}
         self.session: onnxruntime.InferenceSession | None = None
         self.input_name: str | None = None
+
+    @classmethod
+    def from_config(cls, config: CamieV2TaggerModelConfig) -> "CamieTaggerV2":
+        return cls(model_dir=config.model_dir, threshold=config.threshold)
 
     def _load_tag_mappings(self) -> tuple[dict, dict]:
         """メタデータJSONからタグ関連情報を読み込む
@@ -160,7 +165,7 @@ class CamieTaggerV2(Tagger):
 
 
 def run(image_file: str) -> None:
-    tagger = CamieTaggerV2(threshold=0.0)
+    tagger = CamieTaggerV2(model_dir="data/model/camie-tagger-v2", threshold=0.0)
     tagger.initialize()
     tags = tagger.tag_image_file(image_file=image_file)
 

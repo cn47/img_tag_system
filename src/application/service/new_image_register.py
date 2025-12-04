@@ -5,13 +5,13 @@ from pathlib import Path
 from tqdm import tqdm
 from typing_extensions import deprecated
 
-from application.inference.tag_types import TaggerResult
-from application.inference.tagger import Tagger
-from application.repositories.images import ImagesRepository
-from application.repositories.model_tag import ModelTagRepository
+from common.exceptions import DuplicateImageError, ImageNotFoundError, TaggingError, UnsupportedFileTypeError
 from domain.entities.images import ImageEntry
 from domain.entities.model_tag import ModelTagEntries
-from exceptions import DuplicateImageError, ImageNotFoundError, TaggingError, UnsupportedFileTypeError
+from domain.repositories.images import ImagesRepository
+from domain.repositories.model_tag import ModelTagRepository
+from domain.tagger.result import TaggerResult
+from domain.tagger.tagger import Tagger
 
 
 logger = getLogger(__name__)
@@ -114,7 +114,7 @@ class NewImageRegisterService:
 
         return tagger_results
 
-    def register_many(self, image_files: list[str], n_workers: int = 8) -> None:
+    def handle(self, image_files: list[str], n_workers: int = 8) -> None:
         """画像ディレクトリ内のすべての画像を登録する
 
         Args:

@@ -20,3 +20,4 @@ class DuplicateImageError(InfrastructureError):
 
 class ImageNotFoundError(InfrastructureError):
     """画像が見つからないエラー"""
+

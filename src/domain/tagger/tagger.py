@@ -1,14 +1,13 @@
 from pathlib import Path
 from typing import Protocol
 
-from application.inference.tag_types import TaggerResult
+from domain.tagger.result import TaggerResult
 
 
 class Tagger(Protocol):
     """タグ付けモデル"""
 
-    def initialize(self) -> None:
-        pass
+    def initialize(self) -> None: ...
 
     def tag_image_file(self, image_file: str | Path) -> TaggerResult:
         """画像ファイルに対してタグ推論 + カテゴリ分類まで行う
@@ -24,4 +23,4 @@ class Tagger(Protocol):
             RuntimeError: モデルセッションが初期化されていない場合
             TaggingError: タグ推論に失敗した場合
         """
-        pass
+        ...

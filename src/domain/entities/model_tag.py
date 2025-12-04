@@ -1,6 +1,6 @@
 from dataclasses import asdict, dataclass
 
-from application.inference.tag_types import TaggerResult
+from domain.tagger.result import TaggerResult
 
 
 @dataclass(frozen=True)

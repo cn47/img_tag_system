@@ -1,21 +1,28 @@
 import itertools
 
-import duckdb
 import pandas as pd
 
-from application.repositories.debugging import DebuggableRepository
-from application.repositories.model_tag import ModelTagRepository
+from duckdb import ConstraintException
+
+from application.config.app_config import ModelTagRepositoryConfig
 from domain.entities.model_tag import ModelTagEntries, ModelTagEntry
-from domain.model_name import ModelName
-from exceptions import ImageNotFoundError, InfrastructureError
+from domain.repositories.debugging import DebuggableRepository
+from domain.repositories.model_tag import ModelTagRepository
+from common.exceptions import ImageNotFoundError, InfrastructureError
+from infrastructure.registries import RepositoryAdapterRegistry
+from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 
 
-class DuckDBModelTagRepository(ModelTagRepository, DebuggableRepository):
+@RepositoryAdapterRegistry.register("model_tag", "duckdb")
+class DuckDBModelTagRepository(BaseDuckDBRepository, ModelTagRepository, DebuggableRepository):
     """DuckDBを使用したModelTagRepositoryの実装"""
 
-    def __init__(self, conn: duckdb.DuckDBPyConnection, model_name: ModelName) -> None:
-        self.conn = conn
-        self.model_name = model_name.value
+    def __init__(self, database_file: str, table_name: str) -> None:
+        super().__init__(database_file=database_file, table_name=table_name)
+
+    @classmethod
+    def from_config(cls, config: ModelTagRepositoryConfig) -> "DuckDBModelTagRepository":
+        return cls(database_file=config.database.database_file, table_name=config.table_name)
 
     def _row_to_entity(self, row: tuple) -> ModelTagEntry:
         (image_id, category, tag, score, archived) = row
@@ -51,26 +58,19 @@ class DuckDBModelTagRepository(ModelTagRepository, DebuggableRepository):
             flatten_entries = list(itertools.chain.from_iterable([entry.to_dict_list() for entry in entries]))
             tag_df = pd.DataFrame(flatten_entries)
             self.conn.register("tag_df", tag_df)
-            self.conn.execute(
-                f"""
-                INSERT OR REPLACE INTO tags_{self.model_name} (image_id, category, tag, score, archived)
-                SELECT image_id, category, tag, score, archived FROM tag_df
-                """,  # noqa: S608
-            )
+            _cols = "image_id, category, tag, score, archived"
+            q = f"INSERT OR REPLACE INTO {self.table_name} ({_cols}) SELECT {_cols} FROM tag_df"
+            self.conn.execute(q)
             self.conn.unregister("tag_df")
-        except duckdb.ConstraintException as e:
+        except ConstraintException as e:
             if "Violates foreign key constraint" in str(e) and "does not exist in the referenced table" in str(e):
                 msg = "Image ID not found"
                 raise ImageNotFoundError(msg) from e
             raise InfrastructureError(e) from e
 
     def list_by_image_id(self, image_id: int) -> ModelTagEntries:
-        result = self.conn.execute(
-            f"""
-            SELECT * FROM tags_{self.model_name} WHERE image_id = ?
-            """,  # noqa: S608
-            (image_id,),
-        ).fetchall()
+        q = f"SELECT * FROM {self.table_name} WHERE image_id = ?"
+        result = self.conn.execute(q, (image_id,)).fetchall()
         return (
             ModelTagEntries(entries=[self._row_to_entity(row) for row in result])
             if result
@@ -81,19 +81,13 @@ class DuckDBModelTagRepository(ModelTagRepository, DebuggableRepository):
         if not image_ids:
             return set()
 
-        placeholders = ",".join(["?"] * len(image_ids))
-        result = self.conn.execute(
-            f"""SELECT DISTINCT image_id FROM tags_{self.model_name} WHERE image_id IN ({placeholders})""",  # noqa: S608
-        ).fetchall()
+        q = f"SELECT DISTINCT image_id FROM {self.table_name} WHERE image_id IN ({self.sql_placeholders(image_ids)})"
+        result = self.conn.execute(q, image_ids).fetchall()
         return {int(row[0]) for row in result}
 
     def delete_all_by_image_id(self, image_id: int) -> int:
-        result = self.conn.execute(
-            f"""
-            DELETE FROM tags_{self.model_name} WHERE image_id = ?
-            """,  # noqa: S608
-            (image_id,),
-        )
+        q = f"DELETE FROM {self.table_name} WHERE image_id = ?"
+        result = self.conn.execute(q, (image_id,))
         return result.rowcount
 
     def archive(self, image_id: int, category: str, tag: str) -> int:
@@ -117,26 +111,24 @@ class DuckDBModelTagRepository(ModelTagRepository, DebuggableRepository):
 
         tag_df = pd.DataFrame(entries.to_dict_list())
         self.conn.register("tag_df", tag_df)
-        result = self.conn.execute(
-            f"""
-            UPDATE tags_{self.model_name}
+        q = f"""
+            UPDATE {self.table_name}
             SET archived = TRUE
             FROM tag_df
-            WHERE tags_{self.model_name}.image_id = tag_df.image_id
-              AND tags_{self.model_name}.category = tag_df.category
-              AND tags_{self.model_name}.tag = tag_df.tag
-            """,  # noqa: S608
-        )
+            WHERE {self.table_name}.image_id = tag_df.image_id
+              AND {self.table_name}.category = tag_df.category
+              AND {self.table_name}.tag = tag_df.tag
+        """
+        result = self.conn.execute(q)
         self.conn.unregister("tag_df")
         return result.rowcount
 
     def count(self) -> int:
-        result = self.conn.execute(f"SELECT COUNT(*) FROM tags_{self.model_name}").fetchone()  # noqa: S608
+        q = f"SELECT COUNT(*) FROM {self.table_name}"
+        result = self.conn.execute(q).fetchone()
         return result[0] if result else 0
 
     def list_all_as_df(self, limit: int = 20) -> pd.DataFrame:
-        result = self.conn.execute(
-            f"""SELECT * FROM tags_{self.model_name} LIMIT ?""",  # noqa: S608
-            (limit,),
-        ).fetchdf()
+        q = f"SELECT * FROM {self.table_name} LIMIT ?"
+        result = self.conn.execute(q, (limit,)).fetchdf()
         return result

@@ -1,17 +1,25 @@
 import duckdb
 import pandas as pd
 
-from application.repositories.debugging import DebuggableRepository
-from application.repositories.images import ImagesRepository
+from application.config.app_config import ImagesRepositoryConfig
 from domain.entities.images import ImageEntry
-from exceptions import DuplicateImageError, InfrastructureError
+from domain.repositories.debugging import DebuggableRepository
+from domain.repositories.images import ImagesRepository
+from common.exceptions import DuplicateImageError, InfrastructureError
+from infrastructure.registries import RepositoryAdapterRegistry
+from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 
 
-class DuckDBImagesRepository(ImagesRepository, DebuggableRepository):
+@RepositoryAdapterRegistry.register("images", "duckdb")
+class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableRepository):
     """imagesテーブルのリポジトリ"""
 
-    def __init__(self, conn: duckdb.DuckDBPyConnection) -> None:
-        self.conn = conn
+    def __init__(self, database_file: str, table_name: str) -> None:
+        super().__init__(database_file=database_file, table_name=table_name)
+
+    @classmethod
+    def from_config(cls, config: ImagesRepositoryConfig) -> "DuckDBImagesRepository":
+        return cls(database_file=config.database.database_file, table_name=config.table_name)
 
     def _row_to_entity(self, row: tuple) -> ImageEntry:
         (image_id, file_location, width, height, file_type, hash_value, added_at, updated_at) = row
@@ -48,13 +56,9 @@ class DuckDBImagesRepository(ImagesRepository, DebuggableRepository):
         try:
             df = pd.DataFrame([entry.to_dict() for entry in entries])
             self.conn.register("img_df", df)
-            result = self.conn.execute(
-                """
-                INSERT INTO images (file_location, width, height, file_type, hash)
-                SELECT file_location, width, height, file_type, hash FROM img_df
-                RETURNING image_id
-                """,
-            ).fetchall()
+            _cols = "file_location, width, height, file_type, hash"
+            q = f"INSERT INTO {self.table_name} ({_cols}) SELECT {_cols} FROM img_df RETURNING image_id"
+            result = self.conn.execute(q).fetchall()
             self.conn.unregister("img_df")
             return [row[0] for row in result]
         except duckdb.ConstraintException as e:
@@ -64,29 +68,16 @@ class DuckDBImagesRepository(ImagesRepository, DebuggableRepository):
             raise InfrastructureError(e) from e
 
     def update_file_location(self, image_id: int, file_location: str) -> None:
-        self.conn.execute(
-            """
-            UPDATE images
-                SET file_location = ?,
-                    updated_at = CURRENT_TIMESTAMP
-            WHERE image_id = ?
-            """,
-            (
-                file_location,
-                image_id,
-            ),
-        )
+        q = f"UPDATE {self.table_name} SET file_location = ?, updated_at = CURRENT_TIMESTAMP WHERE image_id = ?"
+        self.conn.execute(q, (file_location, image_id))
 
     def delete(self, image_id: int) -> None:
-        self.conn.execute("DELETE FROM images WHERE image_id = ?", (image_id,))
+        q = f"DELETE FROM {self.table_name} WHERE image_id = ?"
+        self.conn.execute(q, (image_id,))
 
     def get(self, image_id: int) -> ImageEntry | None:
-        result = self.conn.execute(
-            """
-            SELECT * FROM images WHERE image_id = ?
-            """,
-            (image_id,),
-        ).fetchone()
+        q = f"SELECT * FROM {self.table_name} WHERE image_id = ?"
+        result = self.conn.execute(q, (image_id,)).fetchone()
         return self._row_to_entity(result) if result else None
 
     def find_by_hash(self, hash_value: str) -> ImageEntry | None:
@@ -100,25 +91,26 @@ class DuckDBImagesRepository(ImagesRepository, DebuggableRepository):
         if not hash_values:
             return []
 
-        placeholders = ",".join(["?"] * len(hash_values))
-        result = self.conn.execute(f"SELECT * FROM images WHERE hash IN ({placeholders})", hash_values).fetchall()  # noqa: S608
+        q = f"SELECT * FROM {self.table_name} WHERE hash IN ({self.sql_placeholders(hash_values)})"
+        result = self.conn.execute(q, hash_values).fetchall()
         return [self._row_to_entity(row) for row in result]
 
     def list_file_locations(self) -> list[tuple[int, str]]:
-        result = self.conn.execute("SELECT image_id, file_location FROM images").fetchall()
+        q = f"SELECT image_id, file_location FROM {self.table_name}"
+        result = self.conn.execute(q).fetchall()
         return result if result else []
 
     def exists(self, image_id: int) -> bool:
-        result = self.conn.execute("SELECT COUNT(*) FROM images WHERE image_id = ?", (image_id,)).fetchone()
+        q = f"SELECT COUNT(*) FROM {self.table_name} WHERE image_id = ?"
+        result = self.conn.execute(q, (image_id,)).fetchone()
         return result[0] > 0 if result else False
 
     def count(self) -> int:
-        result = self.conn.execute("SELECT COUNT(*) FROM images").fetchone()
+        q = f"SELECT COUNT(*) FROM {self.table_name}"
+        result = self.conn.execute(q).fetchone()
         return result[0] if result else 0
 
     def list_all_as_df(self, limit: int = 20) -> pd.DataFrame:
-        result = self.conn.execute(
-            """SELECT * FROM images LIMIT ?""",
-            (limit,),
-        ).fetchdf()
+        q = f"SELECT * FROM {self.table_name} LIMIT ?"
+        result = self.conn.execute(q, (limit,)).fetchdf()
         return result
