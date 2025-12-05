@@ -1,6 +1,7 @@
 """新規画像登録CLIモジュール"""
 
 import logging
+from pathlib import Path
 
 from application.config.factory import RuntimeFactory
 from application.service.new_image_register import NewImageRegisterService
@@ -29,7 +30,7 @@ class NewImageRegisterCLI:
             tagger=tagger,
         )
 
-    def run(self, image_dir: str, n_workers: int = 8, recursive: bool = False) -> None:
+    def run(self, image_dir: str | Path, n_workers: int = 8, recursive: bool = False) -> None:
         """画像ディレクトリ内のすべての画像を登録する"""
         image_files = self.file_system.list_files(image_dir, recursive=recursive)
         self.service.handle(image_files, n_workers=n_workers)

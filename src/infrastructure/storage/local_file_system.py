@@ -11,8 +11,8 @@ from infrastructure.registries import StorageAdapterRegistry
 class LocalFileSystem:
     """ローカルファイルシステム"""
 
-    def __init__(self, root_dir: str) -> None:
-        self.root_dir = root_dir
+    def __init__(self, root_dir: str | Path) -> None:
+        self.root_dir = Path(root_dir)
 
     @classmethod
     def from_config(cls, config: LocalFileSystemConfig) -> "LocalFileSystem":
@@ -33,7 +33,7 @@ class LocalFileSystem:
                         yield Path(entry.path)
 
     @classmethod
-    def list_files(cls, path: str | Path, recursive: bool = False) -> list[str]:
+    def list_files(cls, path: str | Path, recursive: bool = False) -> list[Path]:
         """ファイルを走査してパスのリストを返す
 
         Args:
@@ -42,7 +42,7 @@ class LocalFileSystem:
                 False の場合はディレクトリは走査しない。デフォルトは False。
 
         Returns:
-            list[str]: ファイルのパスのリスト
+            list[Path]: ファイルのパスのリスト
         """
         p = Path(path)
 
@@ -50,14 +50,14 @@ class LocalFileSystem:
             raise FileNotFoundError
 
         if p.is_file():
-            return [str(p)]
+            return [p]
 
         if p.is_dir():
             if recursive:
-                return [str(x) for x in cls._scan_fast(p)]
+                return list(cls._scan_fast(p))
 
             with os.scandir(p) as it:
-                return [str(Path(e.path)) for e in it if e.is_file(follow_symlinks=False) or e.is_symlink()]
+                return [Path(e.path) for e in it if e.is_file(follow_symlinks=False) or e.is_symlink()]
 
         msg = f"Input not file or directory: {p}"
         raise ValueError(msg)

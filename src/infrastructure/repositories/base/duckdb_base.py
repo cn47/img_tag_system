@@ -1,12 +1,14 @@
+from pathlib import Path
+
 import duckdb
 
 
 class BaseDuckDBRepository:
     """DuckDB基底リポジトリ"""
 
-    def __init__(self, database_file: str, table_name: str) -> None:
-        self._conn = duckdb.connect(database_file)
-        self._database_file = database_file
+    def __init__(self, database_file: str | Path, table_name: str) -> None:
+        self._conn = duckdb.connect(str(database_file))
+        self._database_file = Path(database_file)
         self._table_name = table_name
 
     @property
@@ -14,7 +16,7 @@ class BaseDuckDBRepository:
         return self._conn
 
     @property
-    def database_file(self) -> str:
+    def database_file(self) -> Path:
         return self._database_file
 
     @property

@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from application.config.enums import DataBaseType, RepositoryType, StorageType, TaggerType
@@ -8,6 +8,11 @@ from application.config.registries import (
     StorageConfigRegistry,
     TaggerConfigRegistry,
 )
+
+
+def get_project_root() -> Path:
+    """プロジェクトのルートディレクトリを返す"""
+    return Path(__file__).parents[3].resolve()
 
 
 # 増えてきたら分割する
@@ -26,8 +31,8 @@ class StorageConfig:
 class LocalFileSystemConfig(StorageConfig):
     """ローカルファイルシステムの設定"""
 
-    root_dir: str = Path(__file__).parents[3].resolve().as_posix()
-    # root_dir: str = "data/storage/local"
+    root_dir: Path = field(default_factory=get_project_root)
+    # root_dir: Path = Path("data/storage/local")
 
     @property
     def adapter_key(self) -> str:
@@ -47,7 +52,7 @@ class DataBaseConfig:
 @DatabaseConfigRegistry.register("duckdb")
 @dataclass(frozen=True)
 class DuckDBConfig(DataBaseConfig):
-    database_file: str = "data/database/images.duckdb"
+    database_file: Path = field(default_factory=lambda: get_project_root() / "data" / "database" / "images.duckdb")
 
     @property
     def adapter_key(self) -> str:
@@ -80,6 +85,8 @@ class RepositoryConfigGroup:
 @RepositoryConfigRegistry.register("images")
 @dataclass(frozen=True)
 class ImagesRepositoryConfig(RepositoryConfig):
+    """画像メタデータRepository"""
+
     table_name: str = "images"
 
     @property
@@ -90,6 +97,8 @@ class ImagesRepositoryConfig(RepositoryConfig):
 @RepositoryConfigRegistry.register("model_tag")
 @dataclass(frozen=True)
 class ModelTagRepositoryConfig(RepositoryConfig):
+    """モデルタグRepository"""
+
     # 利用するモデルによってテーブル名を変える
     table_name: str
 
@@ -111,7 +120,9 @@ class TaggerModelConfig:
 @TaggerConfigRegistry.register("camie_v2")
 @dataclass(frozen=True)
 class CamieV2TaggerModelConfig(TaggerModelConfig):
-    model_dir: str = "data/model/camie-tagger-v2"
+    """Camie V2モデルの設定"""
+
+    model_dir: Path = field(default_factory=lambda: get_project_root() / "data" / "model" / "camie-tagger-v2")
     threshold: float = 0.0
 
     @property

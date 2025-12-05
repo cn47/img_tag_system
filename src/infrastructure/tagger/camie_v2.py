@@ -164,7 +164,7 @@ class CamieTaggerV2(Tagger):
             raise TaggingError(msg) from e
 
 
-def run(image_file: str) -> None:
+def run(image_file: str | Path) -> None:
     tagger = CamieTaggerV2(model_dir="data/model/camie-tagger-v2", threshold=0.0)
     tagger.initialize()
     tags = tagger.tag_image_file(image_file=image_file)

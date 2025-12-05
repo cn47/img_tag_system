@@ -33,11 +33,11 @@ class NewImageRegisterService:
         self.tagger = tagger
 
     @deprecated("Use register instead")
-    def register_one(self, image_file: str) -> None:
+    def register_one(self, image_file: str | Path) -> None:
         """1枚の画像を登録する
 
         Args:
-            image_file(str): 画像ファイル
+            image_file(str | Path): 画像ファイル
 
         Raises:
             DuplicateImageError: すでに登録済みの画像が存在する場合
@@ -100,7 +100,7 @@ class NewImageRegisterService:
         tagger_results: list[TaggerResult | None] = [None] * len(image_entries)
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
             futures = {
-                executor.submit(self.tagger.tag_image_file, image_file=image_entry.file_location): i
+                executor.submit(self.tagger.tag_image_file, image_file=Path(image_entry.file_location)): i
                 for i, image_entry in enumerate(image_entries)
             }
             for future in tqdm(as_completed(futures), total=len(futures), desc="Tagging images"):
@@ -114,11 +114,11 @@ class NewImageRegisterService:
 
         return tagger_results
 
-    def handle(self, image_files: list[str], n_workers: int = 8) -> None:
+    def handle(self, image_files: list[str | Path], n_workers: int = 8) -> None:
         """画像ディレクトリ内のすべての画像を登録する
 
         Args:
-            image_files(list[str]): 画像ファイルのリスト
+            image_files(list[str | Path]): 画像ファイルのリスト
             n_workers(int): タグ付けの並列処理の最大並列数
 
         Raises:
@@ -127,7 +127,7 @@ class NewImageRegisterService:
         """
         logger.info("total input image files: %d", len(image_files))
 
-        image_entries = [ImageEntry.from_file(image_file=Path(image_file)) for image_file in image_files]
+        image_entries = [ImageEntry.from_file(image_file=Path(image_file) if isinstance(image_file, str) else image_file) for image_file in image_files]
         image_entries = self._exclude_existing_image_entries(image_entries)
 
         # tagging
