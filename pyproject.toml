@@ -69,6 +69,18 @@ extend-select = [
   "TID", # flake8-tidy-imports
   "UP",  # pyupgrade
 ]
+ignore = [
+  "T201", # print() の使用を許可
+  "D400", "D415", # docstringの末尾がピリオド.の強制を無効化
+  "INP001", # __init__.py の設定不要
+  "ERA001", # コメントアウトされたコードをOK
+  "RET504", # 直接returnしなくてもOK
+  "RUF002", # Docstring contains ambiguous `）` (FULLWIDTH RIGHT PARENTHESIS). Did you mean `)` (RIGHT PARENTHESIS)?
+  "D102", # Missing docstring in override
+  "D105", # Missing docstring in magic method
+  "S608", # SQL injection vulnerability
+  "TRY003", # Avoid specifying long messages outside the exception class
+]
 
 [tool.ruff.flake8-tidy-imports]
 ban-relative-imports = "all"
