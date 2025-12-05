@@ -162,17 +162,3 @@ class CamieTaggerV2(Tagger):
         except Exception as e:
             msg = f"Tagging failed: {image_file}: {e}"
             raise TaggingError(msg) from e
-
-
-def run(image_file: str | Path) -> None:
-    tagger = CamieTaggerV2(model_dir="data/model/camie-tagger-v2", threshold=0.0)
-    tagger.initialize()
-    tags = tagger.tag_image_file(image_file=image_file)
-
-    tags.show()
-
-
-if __name__ == "__main__":
-    import fire
-
-    fire.Fire(run)
