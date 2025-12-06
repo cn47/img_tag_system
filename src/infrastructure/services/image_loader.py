@@ -10,7 +10,6 @@ from PIL import Image, UnidentifiedImageError
 
 from common.exceptions import UnsupportedFileTypeError
 from domain.entities.images import ImageSize
-from domain.services.image_loader import ImageLoader
 
 
 class PILImageLoader:

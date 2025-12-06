@@ -1,6 +1,7 @@
 """新規画像登録CLIモジュール"""
 
 import logging
+
 from pathlib import Path
 
 from application.config.factory import RuntimeFactory
