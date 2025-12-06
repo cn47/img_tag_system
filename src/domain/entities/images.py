@@ -1,10 +1,23 @@
+"""画像エンティティと値オブジェクトの定義"""
+
 import hashlib
 
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from PIL import Image
+
+if TYPE_CHECKING:
+    from domain.services.image_loader import ImageLoader
+
+
+@dataclass(frozen=True)
+class ImageSize:
+    """画像サイズ"""
+
+    width: int
+    height: int
 
 
 @dataclass(frozen=True)
@@ -16,44 +29,6 @@ class ImageMetadata:
     width: int
     height: int
     file_type: str
-
-
-class ImageMetadataFactory:
-    """画像ファイルのメタデータを扱うクラス"""
-
-    @classmethod
-    def from_file(cls, image_file: str | Path) -> ImageMetadata:
-        """画像ファイルの情報を取得してImageInfoオブジェクトを返す"""
-        image_file = Path(image_file)
-
-        width, height = cls._get_image_size(image_file)
-        file_hash = cls._calc_sha256(image_file)
-        file_type = cls._get_file_type(image_file)
-
-        return ImageMetadata(
-            image_file=image_file,
-            hash=file_hash,
-            width=width,
-            height=height,
-            file_type=file_type,
-        )
-
-    @staticmethod
-    def _calc_sha256(image_file: Path) -> str:
-        """ファイル全体のSHA256を計算"""
-        with image_file.open("rb") as fp:
-            return hashlib.sha256(fp.read()).hexdigest()
-
-    @staticmethod
-    def _get_image_size(image_file: Path) -> tuple[int, int]:
-        """画像ファイルの幅と高さを取得"""
-        with Image.open(image_file) as image:
-            return image.width, image.height
-
-    @staticmethod
-    def _get_file_type(image_file: Path) -> str:
-        """画像ファイルの形式を取得"""
-        return image_file.suffix.lower().lstrip(".")
 
 
 @dataclass(frozen=True)
@@ -70,9 +45,8 @@ class ImageEntry:
     updated_at: datetime | None = None
 
     @classmethod
-    def from_file(cls, image_file: Path) -> "ImageEntry":
-        """画像ファイルからImageEntryを作成"""
-        metadata = ImageMetadataFactory.from_file(image_file)
+    def from_metadata(cls, metadata: ImageMetadata) -> "ImageEntry":
+        """ImageMetadataからImageEntryを作成"""
         return cls(
             image_id=None,  # 主キーはDB側で自動生成
             file_location=metadata.image_file.as_posix(),
@@ -83,5 +57,53 @@ class ImageEntry:
         )
 
     def to_dict(self) -> dict[str, object]:
-        """ImageEntryの辞書形式"""
+        """ImageEntryの辞書"""
         return asdict(self)
+
+
+class ImageMetadataFactory:
+    """画像メタデータを作成する"""
+
+    @staticmethod
+    def create(
+        image_file: Path,
+        image_loader: "ImageLoader",
+    ) -> ImageMetadata:
+        """画像ファイルからメタデータを作成する
+
+        Args:
+            image_file(Path): 画像ファイルのパス
+            image_loader(ImageLoader): 画像ローダー
+
+        Returns:
+            ImageMetadata: 抽出されたメタデータ
+
+        Raises:
+            FileNotFoundError: ファイルが見つからない場合
+            UnsupportedFileTypeError: サポートされていないファイル形式の場合
+        """
+        image_binary = image_loader.load_binary(image_file)
+
+        image_size = image_loader.extract_size(image_binary)
+
+        file_hash = ImageMetadataFactory._calc_sha256(image_binary)
+
+        file_type = ImageMetadataFactory._get_file_type(image_file)
+
+        return ImageMetadata(
+            image_file=image_file,
+            hash=file_hash,
+            width=image_size.width,
+            height=image_size.height,
+            file_type=file_type,
+        )
+
+    @staticmethod
+    def _calc_sha256(image_binary: bytes) -> str:
+        """バイナリデータからSHA256を計算"""
+        return hashlib.sha256(image_binary).hexdigest()
+
+    @staticmethod
+    def _get_file_type(image_file: Path) -> str:
+        """ファイルパスからファイルタイプを取得"""
+        return image_file.suffix.lower().lstrip(".")

@@ -1,3 +1,5 @@
+"""新規画像登録サービス"""
+
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from logging import getLogger
 from pathlib import Path
@@ -6,12 +8,13 @@ from tqdm import tqdm
 from typing_extensions import deprecated
 
 from common.exceptions import DuplicateImageError, ImageNotFoundError, TaggingError, UnsupportedFileTypeError
-from domain.entities.images import ImageEntry
+from domain.entities.images import ImageEntry, ImageMetadataFactory
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.images import ImagesRepository
 from domain.repositories.model_tag import ModelTagRepository
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
+from infrastructure.services.image_loader import PILImageLoader
 
 
 logger = getLogger(__name__)
@@ -31,6 +34,7 @@ class NewImageRegisterService:
         self.images_repo = images_repo
         self.model_tag_repo = model_tag_repo
         self.tagger = tagger
+        self.image_loader = PILImageLoader()  # TODO: インフラ層の実装を注入に切り替える
 
     @deprecated("Use register instead")
     def register_one(self, image_file: str | Path) -> None:
@@ -47,7 +51,12 @@ class NewImageRegisterService:
         """
         logger.info("Registering image: %s...", image_file)
 
-        image_entry = ImageEntry.from_file(image_file=Path(image_file))
+        image_path = Path(image_file)
+        image_entry = self._create_image_entry_from_file(image_path)
+
+        if image_entry is None:
+            raise UnsupportedFileTypeError(f"Failed to create image entry: {image_file}")
+
         # images table insert
         try:
             image_id = self.images_repo.insert(image_entry)[0]
@@ -71,6 +80,29 @@ class NewImageRegisterService:
         self.model_tag_repo.insert(model_tag_entries)
 
         logger.info("Registering one image completed: %s", image_file)
+
+    def _create_image_entry_from_file(self, image_file: Path) -> ImageEntry | None:
+        """画像ファイルからImageEntryを作成
+
+        Args:
+            image_file(Path): 画像ファイルのパス
+
+        Returns:
+            ImageEntry | None: 作成されたImageEntry、失敗時はNone
+        """
+        try:
+            metadata = ImageMetadataFactory.create(
+                image_file=image_file,
+                image_loader=self.image_loader,
+            )
+            return ImageEntry.from_metadata(metadata)
+
+        except UnsupportedFileTypeError as e:
+            logger.warning("skipped: Unsupported file type: %s: %s", image_file, e)
+            return None
+        except Exception as e:
+            logger.warning("skipped: Failed to load image: %s: %s", image_file, e)
+            return None
 
     def _exclude_existing_image_entries(self, image_entries: list[ImageEntry]) -> list[ImageEntry]:
         """画像のエントリーリストからすでに存在する画像を除外する。
@@ -127,7 +159,14 @@ class NewImageRegisterService:
         """
         logger.info("total input image files: %d", len(image_files))
 
-        image_entries = [ImageEntry.from_file(image_file=Path(image_file) if isinstance(image_file, str) else image_file) for image_file in image_files]
+        # メタデータ抽出とImageEntry作成
+        image_entries: list[ImageEntry] = []
+        for image_file in image_files:
+            image_path = Path(image_file) if isinstance(image_file, str) else image_file
+            image_entry = self._create_image_entry_from_file(image_path)
+            if image_entry is not None:
+                image_entries.append(image_entry)
+
         image_entries = self._exclude_existing_image_entries(image_entries)
 
         # tagging
@@ -136,7 +175,9 @@ class NewImageRegisterService:
         # Taggingできなかった画像は除外
         to_be_processed_idx = [i for i, tagger_result in enumerate(tagger_results) if tagger_result is not None]
         image_entries = [image_entries[i] for i in to_be_processed_idx]
-        tagger_results = [tagger_results[i] for i in to_be_processed_idx]
+        tagger_results_filtered: list[TaggerResult] = [
+            tagger_results[i] for i in to_be_processed_idx if tagger_results[i] is not None
+        ]
 
         # images table insert
         image_ids = self.images_repo.insert(image_entries)
@@ -144,7 +185,7 @@ class NewImageRegisterService:
         # model_tag table insert
         model_tag_entries_list = [
             ModelTagEntries.from_tagger_result(image_id=image_id, tags=tagger_result)
-            for image_id, tagger_result in zip(image_ids, tagger_results, strict=True)
+            for image_id, tagger_result in zip(image_ids, tagger_results_filtered, strict=True)
         ]
         self.model_tag_repo.insert(model_tag_entries_list)
 
