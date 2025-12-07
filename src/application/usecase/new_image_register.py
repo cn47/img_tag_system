@@ -41,11 +41,11 @@ class NewImageRegisterService:
         self.tagger = tagger
         self.image_loader = image_loader
 
-    def handle(self, image_files: list[str | Path], n_workers: int = 8) -> None:
+    def handle(self, image_files: list[Path], n_workers: int = 8) -> None:
         """画像ディレクトリ内のすべての画像を登録する
 
         Args:
-            image_files(list[str | Path]): 画像ファイルのリスト
+            image_files(list[Path]): 画像ファイルのパスのリスト
             n_workers(int): タグ付けの並列処理の最大並列数
 
         Raises:
@@ -55,10 +55,7 @@ class NewImageRegisterService:
         logger.info("total input image files: %d", len(image_files))
 
         # 1. メタデータ抽出とImageEntry作成
-        image_paths: list[Path] = [
-            Path(image_file) if isinstance(image_file, str) else image_file for image_file in image_files
-        ]
-        image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_paths)
+        image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_files)
 
         # 2. 既存画像の重複チェック
         existing_image_entries = self.unit_of_work.images.find_by_hashes([entry.hash for entry in image_entries])
