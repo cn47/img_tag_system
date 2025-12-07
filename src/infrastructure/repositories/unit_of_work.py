@@ -33,7 +33,7 @@ class UnitOfWork:
         self._validate_repositories(value)
         self._repositories = value
 
-    def __getattr__(self, name: str) -> SupportedRepository:
+    def __getitem__(self, name: str) -> SupportedRepository:
         if name in self._repositories:
             return self._repositories[name]
         raise AttributeError(f"Repository {name} not found")
