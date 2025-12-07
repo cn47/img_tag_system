@@ -1,7 +1,7 @@
 import duckdb
 import pandas as pd
 
-from application.config.app_config import ImagesRepositoryConfig
+from application.configs.repository import ImagesRepositoryConfig
 from common.exceptions import DuplicateImageError, InfrastructureError
 from domain.entities.images import ImageEntry
 from domain.repositories.debugging import DebuggableRepository

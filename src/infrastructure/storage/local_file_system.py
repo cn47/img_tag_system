@@ -3,7 +3,7 @@ import os
 from collections.abc import Generator
 from pathlib import Path
 
-from application.config.app_config import LocalFileSystemConfig
+from application.configs.storage import LocalFileSystemConfig
 from infrastructure.registries import StorageAdapterRegistry
 
 

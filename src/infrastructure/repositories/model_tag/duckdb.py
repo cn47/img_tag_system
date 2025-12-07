@@ -4,7 +4,7 @@ import pandas as pd
 
 from duckdb import ConstraintException
 
-from application.config.app_config import ModelTagRepositoryConfig
+from application.configs.repository import ModelTagRepositoryConfig
 from common.exceptions import ImageNotFoundError, InfrastructureError
 from domain.entities.model_tag import ModelTagEntries, ModelTagEntry
 from domain.repositories.debugging import DebuggableRepository

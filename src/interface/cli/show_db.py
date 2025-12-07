@@ -1,6 +1,6 @@
 """データベース内容を表示するCLI"""
 
-from application.config.factory import RuntimeFactory
+from application.system.factory import RuntimeFactory
 from interface.cli.utils.pandas_display import set_pandas_display_options
 from interface.config import app_config
 

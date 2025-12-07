@@ -2,9 +2,8 @@ import importlib
 
 from types import ModuleType
 
-from application.config.app_config import AppConfig
+from application.configs.app import AppConfig
 from infrastructure.registries import (
-    # DatabaseAdapterRegistry,
     RepositoryAdapterRegistry,
     StorageAdapterRegistry,
     TaggerAdapterRegistry,

@@ -1,5 +1,5 @@
-from application.config.app_config import AppConfig
-from application.config.enums import DataBaseType, StorageType, TaggerType
+from application.configs.app import AppConfig
+from application.system.enums import DataBaseType, StorageType, TaggerType
 
 
 STORAGE_TYPE = StorageType.LOCAL

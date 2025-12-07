@@ -2,7 +2,7 @@ from pathlib import Path
 
 import duckdb
 
-from application.config.app_config import get_project_root
+from application.configs.utils import get_project_root
 
 
 DEFAULT_DB_FILE = get_project_root() / "data" / "database" / "images.duckdb"

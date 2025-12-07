@@ -10,7 +10,7 @@ import onnxruntime
 
 from torchvision import transforms
 
-from application.config.app_config import CamieV2TaggerModelConfig
+from application.configs.tagger import CamieV2TaggerModelConfig
 from common.exceptions import TaggingError
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
