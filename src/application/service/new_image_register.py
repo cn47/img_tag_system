@@ -12,6 +12,9 @@ from domain.entities.images import ImageEntry, ImageMetadataFactory
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.images import ImagesRepository
 from domain.repositories.model_tag import ModelTagRepository
+from domain.services.image_deduplication import ImageDeduplicationService
+from domain.services.image_metadata_extractor import ImageMetadataExtractorService
+from domain.services.tagging_result_filter import TaggingResultFilterService
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
 from infrastructure.services.image_loader import PILImageLoader
@@ -81,44 +84,6 @@ class NewImageRegisterService:
 
         logger.info("Registering one image completed: %s", image_file)
 
-    def _create_image_entry_from_file(self, image_file: Path) -> ImageEntry | None:
-        """画像ファイルからImageEntryを作成
-
-        Args:
-            image_file(Path): 画像ファイルのパス
-
-        Returns:
-            ImageEntry | None: 作成されたImageEntry、失敗時はNone
-        """
-        try:
-            metadata = ImageMetadataFactory.create(
-                image_file=image_file,
-                image_loader=self.image_loader,
-            )
-            return ImageEntry.from_metadata(metadata)
-
-        except UnsupportedFileTypeError as e:
-            logger.warning("skipped: Unsupported file type: %s: %s", image_file, e)
-            return None
-        except Exception as e:
-            logger.warning("skipped: Failed to load image: %s: %s", image_file, e)
-            return None
-
-    def _exclude_existing_image_entries(self, image_entries: list[ImageEntry]) -> list[ImageEntry]:
-        """画像のエントリーリストからすでに存在する画像を除外する。
-
-        hash衝突をチェックして、衝突したものは除外する
-
-        Args:
-            image_entries(list[ImageEntry]): 画像エントリーのリスト
-
-        Returns:
-            list[ImageEntry]: すでに存在する画像を除外した新しい画像エントリーのリスト
-        """
-        existing_image_entries = self.images_repo.find_by_hashes([entry.hash for entry in image_entries])
-        existing_hash_set = {entry.hash for entry in existing_image_entries}
-        return [entry for entry in image_entries if entry.hash not in existing_hash_set]
-
     def _tag_image_entries(self, image_entries: list[ImageEntry], n_workers: int) -> list[TaggerResult | None]:
         """画像のエントリーリストをタグ付けする
 
@@ -159,33 +124,30 @@ class NewImageRegisterService:
         """
         logger.info("total input image files: %d", len(image_files))
 
-        # メタデータ抽出とImageEntry作成
-        image_entries: list[ImageEntry] = []
-        for image_file in image_files:
-            image_path = Path(image_file) if isinstance(image_file, str) else image_file
-            image_entry = self._create_image_entry_from_file(image_path)
-            if image_entry is not None:
-                image_entries.append(image_entry)
+        # 1. メタデータ抽出とImageEntry作成
+        image_files = [Path(image_file) if isinstance(image_file, str) else image_file for image_file in image_files]
+        image_entries = ImageMetadataExtractorService(image_loader=self.image_loader).extract_from_files(image_files)
 
-        image_entries = self._exclude_existing_image_entries(image_entries)
+        # 2. 既存画像の重複チェック
+        existing_image_entries = self.images_repo.find_by_hashes([entry.hash for entry in image_entries])
+        existing_hash_set = {entry.hash for entry in existing_image_entries}
+        image_entries = ImageDeduplicationService.filter_duplicates(image_entries, existing_hash_set)
 
-        # tagging
+        # 3. タグ付け処理
         tagger_results = self._tag_image_entries(image_entries, n_workers=n_workers)
 
-        # Taggingできなかった画像は除外
-        to_be_processed_idx = [i for i, tagger_result in enumerate(tagger_results) if tagger_result is not None]
-        image_entries = [image_entries[i] for i in to_be_processed_idx]
-        tagger_results_filtered: list[TaggerResult] = [
-            tagger_results[i] for i in to_be_processed_idx if tagger_results[i] is not None
-        ]
+        # 4. タグ付けできた画像のみを抽出
+        filtered_results = TaggingResultFilterService.filter_tagged_images(image_entries, tagger_results)
+
+        # 5. データベースへの永続化
 
         # images table insert
-        image_ids = self.images_repo.insert(image_entries)
+        image_ids = self.images_repo.insert([result.image_entry for result in filtered_results])
 
         # model_tag table insert
         model_tag_entries_list = [
-            ModelTagEntries.from_tagger_result(image_id=image_id, tags=tagger_result)
-            for image_id, tagger_result in zip(image_ids, tagger_results_filtered, strict=True)
+            ModelTagEntries.from_tagger_result(image_id=image_id, tags=result.tagger_result)
+            for image_id, result in zip(image_ids, filtered_results, strict=True)
         ]
         self.model_tag_repo.insert(model_tag_entries_list)
 
