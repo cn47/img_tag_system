@@ -57,3 +57,18 @@ class PILImageLoader:
         """
         image = cls.load_image(image_file)
         return ImageSize(width=image.width, height=image.height)
+
+    @staticmethod
+    def get_file_size(image_file: str | Path) -> int:
+        """画像ファイルのサイズ（バイト数）を取得する
+
+        Args:
+            image_file(str | Path): 画像ファイルのパス
+
+        Returns:
+            int: ファイルサイズ（バイト数）
+
+        Raises:
+            FileNotFoundError: ファイルが見つからない場合
+        """
+        return Path(image_file).stat().st_size

@@ -1,3 +1,11 @@
+"""画像ハッシュの値オブジェクト
+
+SHA256ハッシュを表現する値オブジェクトです。
+バイナリデータからハッシュを計算する機能も提供します。
+"""
+
+import hashlib
+
 from dataclasses import dataclass
 
 
@@ -17,6 +25,19 @@ class ImageHash:
             int(self.value, 16)
         except ValueError as e:
             raise ValueError(f"Invalid hash format: not a valid hexadecimal string: {self.value[:20]}...") from e
+
+    @classmethod
+    def from_binary(cls, binary_data: bytes) -> "ImageHash":
+        """バイナリデータからSHA256ハッシュを計算してImageHash値オブジェクトを作成する
+
+        Args:
+            binary_data(bytes): ハッシュを計算するバイナリデータ
+
+        Returns:
+            ImageHash: 計算されたハッシュ値オブジェクト
+        """
+        hash_str = hashlib.sha256(binary_data).hexdigest()
+        return cls(hash_str)
 
     def __str__(self) -> str:
         return self.value

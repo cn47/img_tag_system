@@ -1,8 +1,10 @@
 import importlib
 
+from types import ModuleType
+
 from application.config.app_config import AppConfig
 from infrastructure.registries import (
-    DatabaseAdapterRegistry,
+    # DatabaseAdapterRegistry,
     RepositoryAdapterRegistry,
     StorageAdapterRegistry,
     TaggerAdapterRegistry,
@@ -29,7 +31,7 @@ class RuntimeFactory:
         self.config = config
 
     @staticmethod
-    def _load_adapter(module_path: str) -> type:
+    def _load_adapter(module_path: str) -> ModuleType:
         """モジュールを動的に読み込む
 
         Registryに登録されているクラスを動的に読み込む
@@ -53,16 +55,21 @@ class RuntimeFactory:
         return cls.from_config(config)
 
     def create_database(self):
+        """データベース
+
+        NOTE: 現状はDuckDBのみ対応している。
+        将来的に異なる実装が必要になった場合は、設定とレジストリを追加する。
+        """
         config = self.config.database
-        module_path = f"infrastructure.database.{config.adapter_key}"
+        if config.adapter_key == "duckdb":
+            import duckdb
 
-        self._load_adapter(module_path)
-
-        cls = DatabaseAdapterRegistry[config.adapter_key]
-
-        return cls.from_config(config)
+            return duckdb.connect(config.database_file)
+        else:
+            raise ValueError(f"Unsupported database adapter: {config.adapter_key}")
 
     def create_repository(self, repo_name: str):
+        """リポジトリ"""
         config = self.config.repository[repo_name]
         module_path = f"infrastructure.repositories.{config.adapter_key}.{config.database.adapter_key}"
 
@@ -73,6 +80,7 @@ class RuntimeFactory:
         return cls.from_config(config)
 
     def create_tagger(self):
+        """タグ付けモデル"""
         config = self.config.tagger
         module_path = f"infrastructure.tagger.{config.adapter_key}"
 
@@ -81,3 +89,13 @@ class RuntimeFactory:
         cls = TaggerAdapterRegistry[config.adapter_key]
 
         return cls.from_config(config)
+
+    def create_image_loader(self):
+        """画像ローダー
+
+        NOTE: 現状は設定不要で、常にPILImageLoaderを使用する。
+        将来的に異なる実装が必要になった場合は、設定とレジストリを追加する。
+        """
+        from infrastructure.services.image_loader import PILImageLoader
+
+        return PILImageLoader()
