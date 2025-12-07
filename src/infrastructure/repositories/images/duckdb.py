@@ -24,7 +24,7 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
         return cls(database_file=config.database.database_file, table_name=config.table_name)
 
     def _row_to_entity(self, row: tuple) -> ImageEntry:
-        (image_id, file_location, width, height, file_type, hash_value, added_at, updated_at) = row
+        (image_id, file_location, width, height, file_type, hash_value, file_size, added_at, updated_at) = row
         return ImageEntry(
             image_id=image_id,
             file_location=FileLocation(file_location),
@@ -32,6 +32,7 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
             height=height,
             file_type=file_type,
             hash=ImageHash(hash_value),
+            file_size=file_size,
             added_at=added_at,
             updated_at=updated_at,
         )
@@ -58,7 +59,7 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
         try:
             df = pd.DataFrame([entry.to_dict() for entry in entries])
             self.conn.register("img_df", df)
-            _cols = "file_location, width, height, file_type, hash"
+            _cols = "file_location, width, height, file_type, hash, file_size"
             q = f"INSERT INTO {self.table_name} ({_cols}) SELECT {_cols} FROM img_df RETURNING image_id"
             result = self.conn.execute(q).fetchall()
             self.conn.unregister("img_df")

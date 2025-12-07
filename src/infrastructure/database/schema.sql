@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS images (
     height         INTEGER,
     file_type      TEXT,
     hash           TEXT NOT NULL UNIQUE,
+    file_size      INTEGER,
     added_at       TIMESTAMP DEFAULT NOW(),
     updated_at     TIMESTAMP DEFAULT NOW(),
 );
@@ -22,6 +23,7 @@ COMMENT ON COLUMN images.width          IS '画像の横幅（ピクセル）';
 COMMENT ON COLUMN images.height         IS '画像の高さ（ピクセル）';
 COMMENT ON COLUMN images.file_type      IS '画像のファイルタイプ（拡張子など）';
 COMMENT ON COLUMN images.hash           IS '画像のハッシュ（pHash / SHA系など）';
+COMMENT ON COLUMN images.file_size      IS '画像ファイルのサイズ（バイト数）';
 COMMENT ON COLUMN images.added_at       IS '画像が取り込まれた日時';
 COMMENT ON COLUMN images.updated_at     IS '画像メタデータが最後に更新された日時';
 
