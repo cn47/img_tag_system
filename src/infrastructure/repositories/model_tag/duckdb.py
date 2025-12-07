@@ -4,7 +4,6 @@ import pandas as pd
 
 from duckdb import ConstraintException
 
-from application.configs.repository import ModelTagRepositoryConfig
 from common.exceptions import ImageNotFoundError, InfrastructureError
 from domain.entities.model_tag import ModelTagEntries, ModelTagEntry
 from domain.repositories.debugging import DebuggableRepository
@@ -19,10 +18,6 @@ class DuckDBModelTagRepository(BaseDuckDBRepository, ModelTagRepository, Debugga
 
     def __init__(self, database_file: str, table_name: str) -> None:
         super().__init__(database_file=database_file, table_name=table_name)
-
-    @classmethod
-    def from_config(cls, config: ModelTagRepositoryConfig) -> "DuckDBModelTagRepository":
-        return cls(database_file=config.database.database_file, table_name=config.table_name)
 
     def _row_to_entity(self, row: tuple) -> ModelTagEntry:
         (image_id, category, tag, score, archived) = row

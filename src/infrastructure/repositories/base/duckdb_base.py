@@ -2,6 +2,8 @@ from pathlib import Path
 
 import duckdb
 
+from application.configs.repository import RepositoryConfig
+
 
 class BaseDuckDBRepository:
     """DuckDB基底リポジトリ"""
@@ -10,6 +12,10 @@ class BaseDuckDBRepository:
         self._conn = duckdb.connect(str(database_file))
         self._database_file = Path(database_file)
         self._table_name = table_name
+
+    @classmethod
+    def from_config(cls, config: RepositoryConfig) -> "BaseDuckDBRepository":
+        return cls(database_file=config.database.database_file, table_name=config.table_name)
 
     @property
     def conn(self) -> duckdb.DuckDBPyConnection:

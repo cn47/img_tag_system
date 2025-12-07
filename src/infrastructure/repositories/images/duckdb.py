@@ -1,7 +1,6 @@
 import duckdb
 import pandas as pd
 
-from application.configs.repository import ImagesRepositoryConfig
 from common.exceptions import DuplicateImageError, InfrastructureError
 from domain.entities.images import ImageEntry
 from domain.repositories.debugging import DebuggableRepository
@@ -18,10 +17,6 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
 
     def __init__(self, database_file: str, table_name: str) -> None:
         super().__init__(database_file=database_file, table_name=table_name)
-
-    @classmethod
-    def from_config(cls, config: ImagesRepositoryConfig) -> "DuckDBImagesRepository":
-        return cls(database_file=config.database.database_file, table_name=config.table_name)
 
     def _row_to_entity(self, row: tuple) -> ImageEntry:
         (image_id, file_location, width, height, file_type, hash_value, file_size, added_at, updated_at) = row
