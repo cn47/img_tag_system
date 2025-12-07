@@ -2,12 +2,12 @@
 
 from logging import getLogger
 from pathlib import Path
+from typing import Final
 
 from application.service.image_metadata_extractor import ImageMetadataExtractor
 from common.image_loader import ImageLoader
 from domain.entities.model_tag import ModelTagEntries
-from domain.repositories.images import ImagesRepository
-from domain.repositories.model_tag import ModelTagRepository
+from domain.repositories.unit_of_work import UnitOfWorkProtocol
 from domain.services.image_deduplication import ImageDeduplicationService
 from domain.services.tagging_result_filter import TaggingResultFilterService
 from domain.tagger.tagger import Tagger
@@ -20,23 +20,24 @@ logger = getLogger(__name__)
 class NewImageRegisterService:
     """新規画像登録サービス"""
 
+    REQUIRED_REPOSITORIES: Final[list[str]] = ["images", "model_tag"]
+
     def __init__(
         self,
-        images_repo: ImagesRepository,
-        model_tag_repo: ModelTagRepository,
+        unit_of_work: UnitOfWorkProtocol,
         tagger: Tagger,
         image_loader: ImageLoader,
     ) -> None:
         """NewImageRegisterServiceを初期化する
 
         Args:
-            images_repo(ImagesRepository): 画像リポジトリ
-            model_tag_repo(ModelTagRepository): モデルタグリポジトリ
+            unit_of_work(UnitOfWorkProtocol): Unit of Work.次のリポジトリを管理する:
+                - images(ImagesRepository): 画像リポジトリ
+                - model_tag(ModelTagRepository): モデルタグリポジトリ
             tagger(Tagger): タグ付けモデル
             image_loader(ImageLoader): 画像ローダー
         """
-        self.images_repo = images_repo
-        self.model_tag_repo = model_tag_repo
+        self.unit_of_work = unit_of_work.subset(self.REQUIRED_REPOSITORIES)
         self.tagger = tagger
         self.image_loader = image_loader
 
@@ -60,7 +61,7 @@ class NewImageRegisterService:
         image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_paths)
 
         # 2. 既存画像の重複チェック
-        existing_image_entries = self.images_repo.find_by_hashes([entry.hash for entry in image_entries])
+        existing_image_entries = self.unit_of_work.images.find_by_hashes([entry.hash for entry in image_entries])
         existing_hash_set = {entry.hash for entry in existing_image_entries}
         image_entries = ImageDeduplicationService.filter_duplicates(image_entries, existing_hash_set)
 
@@ -80,16 +81,16 @@ class NewImageRegisterService:
         filtered_results = TaggingResultFilterService.filter_tagged_images(image_entries, tagger_results)
 
         # 5. データベースへの永続化
+        with self.unit_of_work:
+            # images table insert
+            image_ids = self.unit_of_work.images.insert([result.image_entry for result in filtered_results])
 
-        # images table insert
-        image_ids = self.images_repo.insert([result.image_entry for result in filtered_results])
+            # model_tag table insert
+            model_tag_entries_list = [
+                ModelTagEntries.from_tagger_result(image_id=image_id, tags=result.tagger_result)
+                for image_id, result in zip(image_ids, filtered_results, strict=True)
+            ]
+            self.unit_of_work.model_tag.insert(model_tag_entries_list)
 
-        # model_tag table insert
-        model_tag_entries_list = [
-            ModelTagEntries.from_tagger_result(image_id=image_id, tags=result.tagger_result)
-            for image_id, result in zip(image_ids, filtered_results, strict=True)
-        ]
-        self.model_tag_repo.insert(model_tag_entries_list)
-
-        logger.info("total registered images: %d", len(image_ids))
-        logger.info("total registered model_tag_entries: %d", len(model_tag_entries_list))
+            logger.info("total registered images: %d", len(image_ids))
+            logger.info("total registered model_tag_entries: %d", len(model_tag_entries_list))

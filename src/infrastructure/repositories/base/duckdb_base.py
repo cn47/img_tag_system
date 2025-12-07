@@ -21,6 +21,12 @@ class BaseDuckDBRepository:
     def conn(self) -> duckdb.DuckDBPyConnection:
         return self._conn
 
+    def commit(self) -> None:
+        self._conn.commit()
+
+    def rollback(self) -> None:
+        self._conn.rollback()
+
     @property
     def database_file(self) -> Path:
         return self._database_file

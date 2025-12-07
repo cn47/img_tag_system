@@ -17,6 +17,8 @@ class DataBaseConfig:
 @DatabaseConfigRegistry.register("duckdb")
 @dataclass(frozen=True)
 class DuckDBConfig(DataBaseConfig):
+    """DuckDB設定"""
+
     database_file: Path = field(default_factory=lambda: get_project_root() / "data" / "database" / "images.duckdb")
 
     @property

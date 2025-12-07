@@ -1,13 +1,17 @@
 import importlib
 
 from types import ModuleType
+from typing import TYPE_CHECKING
 
-from application.configs.app import AppConfig
 from infrastructure.registries import (
     RepositoryAdapterRegistry,
     StorageAdapterRegistry,
     TaggerAdapterRegistry,
 )
+
+
+if TYPE_CHECKING:
+    from application.configs.app import AppConfig
 
 
 class RuntimeFactory:
@@ -26,7 +30,7 @@ class RuntimeFactory:
         >>> tagger = factory.create_tagger()
     """
 
-    def __init__(self, config: AppConfig):
+    def __init__(self, config: "AppConfig"):
         self.config = config
 
     @staticmethod
@@ -77,6 +81,18 @@ class RuntimeFactory:
         cls = RepositoryAdapterRegistry.get(config.adapter_key, config.database.adapter_key)
 
         return cls.from_config(config)
+
+    def create_unit_of_work(self):
+        """Unit of Work
+
+        NOTE: commit, rollbackメソッドを持つリポジトリならバックエンドDBを問わず使用できる。
+        DBの種類に応じて、異なるUnit of Work実装が必要になった場合は、ここで切り替える。
+        """
+        from infrastructure.repositories.unit_of_work import UnitOfWork
+
+        repos = {repo_name: self.create_repository(repo_name) for repo_name in self.config.repository.__dict__}
+
+        return UnitOfWork(repos)
 
     def create_tagger(self):
         """タグ付けモデル"""

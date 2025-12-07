@@ -20,15 +20,13 @@ class NewImageRegisterCLI:
         factory = RuntimeFactory(config)
 
         self.file_system = factory.create_storage()
-        images_repo = factory.create_repository("images")
-        model_tag_repo = factory.create_repository("model_tag")
+        unit_of_work = factory.create_unit_of_work()
         tagger = factory.create_tagger()
         tagger.initialize()
         image_loader = factory.create_image_loader()
 
         self.service = NewImageRegisterService(
-            images_repo=images_repo,
-            model_tag_repo=model_tag_repo,
+            unit_of_work=unit_of_work,
             tagger=tagger,
             image_loader=image_loader,
         )
