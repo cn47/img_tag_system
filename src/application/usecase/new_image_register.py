@@ -58,7 +58,7 @@ class NewImageRegisterService:
         image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_files)
 
         # 2. 既存画像の重複チェック
-        existing_image_entries = self.unit_of_work.images.find_by_hashes([entry.hash for entry in image_entries])
+        existing_image_entries = self.unit_of_work["images"].find_by_hashes([entry.hash for entry in image_entries])
         existing_hash_set = {entry.hash for entry in existing_image_entries}
         image_entries = ImageDeduplicationService.filter_duplicates(image_entries, existing_hash_set)
 
@@ -80,14 +80,14 @@ class NewImageRegisterService:
         # 5. データベースへの永続化
         with self.unit_of_work:
             # images table insert
-            image_ids = self.unit_of_work.images.insert([result.image_entry for result in filtered_results])
+            image_ids = self.unit_of_work["images"].insert([result.image_entry for result in filtered_results])
 
             # model_tag table insert
             model_tag_entries_list = [
                 ModelTagEntries.from_tagger_result(image_id=image_id, tags=result.tagger_result)
                 for image_id, result in zip(image_ids, filtered_results, strict=True)
             ]
-            self.unit_of_work.model_tag.insert(model_tag_entries_list)
+            self.unit_of_work["model_tag"].insert(model_tag_entries_list)
 
             logger.info("total registered images: %d", len(image_ids))
             logger.info("total registered model_tag_entries: %d", len(model_tag_entries_list))
