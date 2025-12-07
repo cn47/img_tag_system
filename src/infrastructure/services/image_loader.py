@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
 from common.exceptions import UnsupportedFileTypeError
-from domain.entities.images import ImageSize
+from domain.value_objects.image_size import ImageSize
 
 
 class PILImageLoader:

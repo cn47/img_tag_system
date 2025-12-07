@@ -1,6 +1,8 @@
 from typing import Protocol
 
 from domain.entities.images import ImageEntry
+from domain.value_objects.file_location import FileLocation
+from domain.value_objects.image_hash import ImageHash
 
 
 """
@@ -32,12 +34,12 @@ class ImagesRepository(Protocol):
         """
         ...
 
-    def update_file_location(self, image_id: int, file_location: str) -> None:
+    def update_file_location(self, image_id: int, file_location: FileLocation) -> None:
         """ファイルパスを更新
 
         Args:
             image_id(int): 画像ID
-            file_location(str): ファイルパス
+            file_location(FileLocation): ファイルパス
 
         """
         ...
@@ -64,39 +66,39 @@ class ImagesRepository(Protocol):
         """
         ...
 
-    def find_by_hash(self, hash_value: str) -> ImageEntry | None:
+    def find_by_hash(self, hash_value: ImageHash) -> ImageEntry | None:
         """ハッシュで1件取得
 
         内部でhash_valueをリストに変換してfind_by_hashesを呼び出す。
         実処理はfind_by_hashesで行う。
 
         Args:
-            hash_value(str): ハッシュ
+            hash_value(ImageHash): ハッシュ
 
         Returns:
             ImageEntry | None: 画像
         """
         ...
 
-    def find_by_hashes(self, hash_values: list[str]) -> list[ImageEntry]:
+    def find_by_hashes(self, hash_values: list[ImageHash]) -> list[ImageEntry]:
         """ハッシュのリストで複数件取得
 
         Args:
-            hash_values(list[str]): ハッシュのリスト
+            hash_values(list[ImageHash]): ハッシュのリスト
 
         Returns:
             list[ImageEntry]: 画像のリスト
         """
         ...
 
-    def list_file_locations(self) -> list[tuple[int, str]]:
+    def list_file_locations(self) -> list[tuple[int, FileLocation]]:
         """画像IDとファイルパスのペアリスト
 
         Args:
             None
 
         Returns:
-            list[tuple[int, str]]: 画像IDとファイルパスのペアリスト
+            list[tuple[int, FileLocation]]: 画像IDとファイルパスのペアリスト
         """
         ...
 

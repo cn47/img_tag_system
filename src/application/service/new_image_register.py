@@ -132,7 +132,7 @@ class NewImageRegisterService:
         tagger_results: list[TaggerResult | None] = [None] * len(image_entries)
         with ThreadPoolExecutor(max_workers=n_workers) as executor:
             futures = {
-                executor.submit(self.tagger.tag_image_file, image_file=Path(image_entry.file_location)): i
+                executor.submit(self.tagger.tag_image_file, image_file=Path(str(image_entry.file_location))): i
                 for i, image_entry in enumerate(image_entries)
             }
             for future in tqdm(as_completed(futures), total=len(futures), desc="Tagging images"):
@@ -140,9 +140,9 @@ class NewImageRegisterService:
                 try:
                     tagger_results[i] = future.result()
                 except UnsupportedFileTypeError as e:
-                    logger.warning("skipped: Unsupported file type: %s: %s", image_entries[i].file_location, e)
+                    logger.warning("skipped: Unsupported file type: %s: %s", str(image_entries[i].file_location), e)
                 except TaggingError as e:
-                    logger.warning("skipped: Tagging failed for %s: %s", image_entries[i].file_location, e)
+                    logger.warning("skipped: Tagging failed for %s: %s", str(image_entries[i].file_location), e)
 
         return tagger_results
 

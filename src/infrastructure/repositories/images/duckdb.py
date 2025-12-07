@@ -6,6 +6,8 @@ from common.exceptions import DuplicateImageError, InfrastructureError
 from domain.entities.images import ImageEntry
 from domain.repositories.debugging import DebuggableRepository
 from domain.repositories.images import ImagesRepository
+from domain.value_objects.file_location import FileLocation
+from domain.value_objects.image_hash import ImageHash
 from infrastructure.registries import RepositoryAdapterRegistry
 from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 
@@ -25,11 +27,11 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
         (image_id, file_location, width, height, file_type, hash_value, added_at, updated_at) = row
         return ImageEntry(
             image_id=image_id,
-            file_location=file_location,
+            file_location=FileLocation(file_location),
             width=width,
             height=height,
             file_type=file_type,
-            hash=hash_value,
+            hash=ImageHash(hash_value),
             added_at=added_at,
             updated_at=updated_at,
         )
@@ -67,9 +69,9 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
                 raise DuplicateImageError(msg) from e
             raise InfrastructureError(e) from e
 
-    def update_file_location(self, image_id: int, file_location: str) -> None:
+    def update_file_location(self, image_id: int, file_location: FileLocation) -> None:
         q = f"UPDATE {self.table_name} SET file_location = ?, updated_at = CURRENT_TIMESTAMP WHERE image_id = ?"
-        self.conn.execute(q, (file_location, image_id))
+        self.conn.execute(q, (str(file_location), image_id))
 
     def delete(self, image_id: int) -> None:
         q = f"DELETE FROM {self.table_name} WHERE image_id = ?"
@@ -80,25 +82,25 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
         result = self.conn.execute(q, (image_id,)).fetchone()
         return self._row_to_entity(result) if result else None
 
-    def find_by_hash(self, hash_value: str) -> ImageEntry | None:
-        if not hash_value:
-            return None
-
+    def find_by_hash(self, hash_value: ImageHash) -> ImageEntry | None:
         result = self.find_by_hashes([hash_value])
         return result[0] if result else None
 
-    def find_by_hashes(self, hash_values: list[str]) -> list[ImageEntry]:
+    def find_by_hashes(self, hash_values: list[ImageHash]) -> list[ImageEntry]:
         if not hash_values:
             return []
 
-        q = f"SELECT * FROM {self.table_name} WHERE hash IN ({self.sql_placeholders(hash_values)})"
-        result = self.conn.execute(q, hash_values).fetchall()
+        hash_strings = [str(hash_value) for hash_value in hash_values]
+        q = f"SELECT * FROM {self.table_name} WHERE hash IN ({self.sql_placeholders(hash_strings)})"
+        result = self.conn.execute(q, hash_strings).fetchall()
         return [self._row_to_entity(row) for row in result]
 
-    def list_file_locations(self) -> list[tuple[int, str]]:
+    def list_file_locations(self) -> list[tuple[int, FileLocation]]:
         q = f"SELECT image_id, file_location FROM {self.table_name}"
         result = self.conn.execute(q).fetchall()
-        return result if result else []
+        if not result:
+            return []
+        return [(image_id, FileLocation(file_location)) for image_id, file_location in result]
 
     def exists(self, image_id: int) -> bool:
         q = f"SELECT COUNT(*) FROM {self.table_name} WHERE image_id = ?"

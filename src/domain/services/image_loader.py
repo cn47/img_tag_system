@@ -1,13 +1,16 @@
-"""画像ローダーのドメインサービスインターフェース"""
-
 from pathlib import Path
 from typing import Protocol
 
-from domain.entities.images import ImageSize
+from PIL.Image import Image as PILImage
+
+from domain.value_objects.image_size import ImageSize
+
+
+# TODO: ローカル依存、PIL依存なので
 
 
 class ImageLoader(Protocol):
-    """画像ローダーのドメインサービスインターフェース"""
+    """画像ローダー"""
 
     def load_binary(self, image_file: str | Path) -> bytes:
         """画像ファイルをバイナリデータとして読み込む
@@ -17,9 +20,14 @@ class ImageLoader(Protocol):
 
         Returns:
             bytes: 画像のバイナリデータ
+        """
+        ...
 
-        Raises:
-            FileNotFoundError: ファイルが見つからない場合
+    def load_image(self, image_file: str | Path) -> PILImage:
+        """画像ファイルをPILのImageオブジェクトとして読み込む
+
+        Args:
+            image_file(str | Path): 画像ファイルのパス
         """
         ...
 
@@ -31,8 +39,5 @@ class ImageLoader(Protocol):
 
         Returns:
             ImageSize: 画像のサイズ情報
-
-        Raises:
-            UnsupportedFileTypeError: サポートされていないファイル形式の場合
         """
         ...
