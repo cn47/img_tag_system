@@ -9,11 +9,11 @@ from domain.entities.images import ImageSize
 class ImageLoader(Protocol):
     """画像ローダーのドメインサービスインターフェース"""
 
-    def load_binary(self, image_file: Path) -> bytes:
+    def load_binary(self, image_file: str | Path) -> bytes:
         """画像ファイルをバイナリデータとして読み込む
 
         Args:
-            image_file(Path): 画像ファイルのパス
+            image_file(str | Path): 画像ファイルのパス
 
         Returns:
             bytes: 画像のバイナリデータ
@@ -23,11 +23,11 @@ class ImageLoader(Protocol):
         """
         ...
 
-    def extract_size(self, image_binary: bytes) -> ImageSize:
+    def extract_size(self, image_file: str | Path) -> ImageSize:
         """画像からサイズを抽出する
 
         Args:
-            image_binary(bytes): 画像のバイナリデータ
+            image_file(str | Path): 画像ファイルのパス
 
         Returns:
             ImageSize: 画像のサイズ情報

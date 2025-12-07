@@ -8,14 +8,14 @@ from typing import Final
 import numpy as np
 import onnxruntime
 
-from PIL import Image, UnidentifiedImageError
 from torchvision import transforms
 
 from application.config.app_config import CamieV2TaggerModelConfig
-from common.exceptions import TaggingError, UnsupportedFileTypeError
+from common.exceptions import TaggingError
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
 from infrastructure.registries import TaggerAdapterRegistry
+from infrastructure.services.image_loader import PILImageLoader
 
 
 @TaggerAdapterRegistry.register("camie_v2")
@@ -99,16 +99,9 @@ class CamieTaggerV2(Tagger):
 
         Returns:
             np.ndarray: モデルに入力できるテンソル
-
-        Raises:
-            UnsupportedFileTypeError: サポートされていないファイル形式の場合
         """
         image_path = Path(image_file)
-        try:
-            image = Image.open(image_path).convert("RGB")
-        except UnidentifiedImageError as e:
-            msg = f"Not supported file type: {image_file}"
-            raise UnsupportedFileTypeError(msg) from e
+        image = PILImageLoader.load_image(image_path).convert("RGB")
 
         transform = transforms.Compose(
             [
@@ -157,8 +150,5 @@ class CamieTaggerV2(Tagger):
 
             tag_scores = {tag: float(pred[idx]) for tag, idx in self.tag_to_idx.items() if pred[idx] >= self.threshold}
             return TaggerResult(tags=self._categorize_tag_scores(tag_scores))
-        except UnsupportedFileTypeError:
-            raise
         except Exception as e:
-            msg = f"Tagging failed: {image_file}: {e}"
-            raise TaggingError(msg) from e
+            raise TaggingError(f"Tagging failed: {image_file}") from e
