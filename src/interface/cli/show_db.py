@@ -19,11 +19,23 @@ class ShowDBCLI:
         images = images_repo.list_all_as_df(limit=limit)
         print(images)
 
+    def images_count(self) -> None:
+        """Show images count"""
+        images_repo = self.factory.create_repository("images")
+        count = images_repo.count()
+        print(count)
+
     def model_tag(self, limit: int = 20) -> None:
         """Show model tag"""
         model_tag_repo = self.factory.create_repository("model_tag")
         model_tag = model_tag_repo.list_all_as_df(limit=limit)
         print(model_tag)
+
+    def model_tag_count(self) -> None:
+        """Show model tag count"""
+        model_tag_repo = self.factory.create_repository("model_tag")
+        count = model_tag_repo.count()
+        print(count)
 
     def tables(self) -> None:
         """Show tables"""
