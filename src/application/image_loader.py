@@ -1,25 +1,19 @@
-"""画像ローダーのプロトコル定義
-
-このプロトコルは技術的な抽象化のため、common層に配置されています。
-ドメイン層は技術的詳細から独立しているため、このプロトコルは使用しません。
-"""
-
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol
-
-
-if TYPE_CHECKING:
-    from PIL.Image import Image as PILImage
+from typing import Protocol
 
 from domain.value_objects.image_size import ImageSize
 
 
-class ImageLoader(Protocol):
-    """画像ローダーのプロトコル
+class ImageObject(Protocol):
+    @property
+    def width(self) -> int: ...
 
-    このプロトコルはアプリケーション層とインフラ層で使用されます。
-    ドメイン層は技術的詳細から独立しているため、このプロトコルを直接使用しません。
-    """
+    @property
+    def height(self) -> int: ...
+
+
+class ImageLoader(Protocol):
+    """画像ローダー"""
 
     def load_binary(self, image_file: str | Path) -> bytes:
         """画像ファイルをバイナリデータとして読み込む
@@ -32,17 +26,14 @@ class ImageLoader(Protocol):
         """
         ...
 
-    def load_image(self, image_file: str | Path) -> "PILImage":
+    def load_image(self, image_file: str | Path) -> ImageObject:
         """画像ファイルをPILのImageオブジェクトとして読み込む
-
-        注意: このメソッドは実装依存の型を返すため、
-        インフラ層でのみ使用することを推奨します。
 
         Args:
             image_file(str | Path): 画像ファイルのパス
 
         Returns:
-            PILImage: PILのImageオブジェクト（実装依存）
+            ImageObject: 画像オブジェクト
         """
         ...
 

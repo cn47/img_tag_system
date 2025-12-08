@@ -1,8 +1,8 @@
 from logging import getLogger
 from pathlib import Path
 
+from application.image_loader import ImageLoader
 from common.exceptions import UnsupportedFileTypeError
-from common.image_loader import ImageLoader
 from domain.entities.images import ImageEntry, ImageMetadataFactory
 from domain.value_objects.file_location import FileLocation
 

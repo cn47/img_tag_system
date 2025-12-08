@@ -5,7 +5,7 @@ import logging
 from pathlib import Path
 
 from application.system.factory import RuntimeFactory
-from application.usecase.new_image_register import NewImageRegisterService
+from application.usecases.new_image_register import NewImageRegisterService
 from interface.config import app_config
 
 

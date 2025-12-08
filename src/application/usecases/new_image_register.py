@@ -4,8 +4,8 @@ from logging import getLogger
 from pathlib import Path
 from typing import Final
 
+from application.image_loader import ImageLoader
 from application.service.image_metadata_extractor import ImageMetadataExtractor
-from common.image_loader import ImageLoader
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.unit_of_work import UnitOfWorkProtocol
 from domain.services.image_deduplication import ImageDeduplicationService
