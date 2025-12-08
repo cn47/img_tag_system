@@ -5,9 +5,6 @@ from dataclasses import dataclass
 class ImageSize:
     """画像サイズの値オブジェクト
 
-    画像の幅と高さを表現する値オブジェクトです。
-    イミュータブルで、バリデーション機能を提供します。
-
     Attributes:
         width(int): 画像の幅（ピクセル）
         height(int): 画像の高さ（ピクセル）
