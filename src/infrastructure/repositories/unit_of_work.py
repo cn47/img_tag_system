@@ -1,11 +1,4 @@
-from typing import Protocol
-
-
-class SupportedRepository(Protocol):
-    """サポートされるリポジトリ"""
-
-    def commit(self) -> None: ...
-    def rollback(self) -> None: ...
+from domain.repositories.unit_of_work import SupportedRepository
 
 
 class UnitOfWork:
@@ -33,10 +26,10 @@ class UnitOfWork:
         self._validate_repositories(value)
         self._repositories = value
 
-    def __getitem__(self, name: str) -> SupportedRepository:
-        if name in self._repositories:
-            return self._repositories[name]
-        raise AttributeError(f"Repository {name} not found")
+    def __getitem__(self, key: str) -> SupportedRepository:
+        if key in self._repositories:
+            return self._repositories[key]
+        raise AttributeError(f"Repository {key} not found")
 
     def subset(self, keys: list[str]) -> "UnitOfWork":
         return UnitOfWork(repositories={name: self.repositories[name] for name in keys})

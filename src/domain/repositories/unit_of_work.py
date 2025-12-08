@@ -1,6 +1,13 @@
 from typing import Protocol
 
 
+class SupportedRepository(Protocol):
+    """サポートされるリポジトリ"""
+
+    def commit(self) -> None: ...
+    def rollback(self) -> None: ...
+
+
 class UnitOfWorkProtocol(Protocol):
     """Unit of Work
 
@@ -8,7 +15,7 @@ class UnitOfWorkProtocol(Protocol):
 
     """
 
-    def __getitem__(self, key: str):
+    def __getitem__(self, key: str) -> SupportedRepository:
         """サポートされるリポジトリを取得"""
         ...
 
