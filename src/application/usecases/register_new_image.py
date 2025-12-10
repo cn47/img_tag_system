@@ -17,8 +17,8 @@ from infrastructure.services.parallel_executor import ExecutionStrategy, execute
 logger = getLogger(__name__)
 
 
-class NewImageRegisterService:
-    """新規画像登録サービス"""
+class RegisterNewImageUsecase:
+    """新規画像登録ユースケース"""
 
     REQUIRED_REPOSITORIES: Final[list[str]] = ["images", "model_tag"]
 
@@ -28,7 +28,7 @@ class NewImageRegisterService:
         tagger: Tagger,
         image_loader: ImageLoader,
     ) -> None:
-        """NewImageRegisterServiceを初期化する
+        """RegisterNewImageUsecaseを初期化する
 
         Args:
             unit_of_work(UnitOfWorkProtocol): Unit of Work.次のリポジトリを管理する:

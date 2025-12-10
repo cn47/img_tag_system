@@ -5,14 +5,14 @@ import logging
 from pathlib import Path
 
 from application.system.factory import RuntimeFactory
-from application.usecases.new_image_register import NewImageRegisterService
+from application.usecases.register_new_image import RegisterNewImageUsecase
 from interface.config import app_config
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
 
-class NewImageRegisterCLI:
+class RegisterNewImageCLI:
     """Fire CLI class for image registration"""
 
     def __init__(self) -> None:
@@ -25,7 +25,7 @@ class NewImageRegisterCLI:
         tagger.initialize()
         image_loader = factory.create_image_loader()
 
-        self.service = NewImageRegisterService(
+        self.usecase = RegisterNewImageUsecase(
             unit_of_work=unit_of_work,
             tagger=tagger,
             image_loader=image_loader,
@@ -34,10 +34,10 @@ class NewImageRegisterCLI:
     def run(self, image_dir: str | Path, n_workers: int = 8, recursive: bool = False) -> None:
         """画像ディレクトリ内のすべての画像を登録する"""
         image_files = self.file_system.list_files(image_dir, recursive=recursive)
-        self.service.handle(image_files, n_workers=n_workers)
+        self.usecase.handle(image_files, n_workers=n_workers)
 
 
 if __name__ == "__main__":
     from fire import Fire
 
-    Fire(NewImageRegisterCLI().run)
+    Fire(RegisterNewImageCLI().run)
