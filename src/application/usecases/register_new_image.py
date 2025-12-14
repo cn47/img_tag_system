@@ -9,7 +9,7 @@ from application.service.image_metadata_extractor import ImageMetadataExtractor
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.unit_of_work import UnitOfWorkProtocol
 from domain.services.image_deduplication import ImageDeduplicationService
-from domain.services.tagging_result_classifier import TaggintResultClassifier
+from domain.services.tagging_result_classifier import TaggingResultClassifier
 from domain.tagger.tagger import Tagger
 from infrastructure.services.parallel_executor import ExecutionStrategy, execute_parallel
 
@@ -84,7 +84,7 @@ class RegisterNewImageUsecase:
 
         # 4. タグ付けできた画像のみを抽出（ExceptionをNoneに変換）
         tagger_results = [result if not isinstance(result, Exception) else None for result in tagger_results_raw]
-        outcome = TaggintResultClassifier.classify(image_entries, tagger_results)
+        outcome = TaggingResultClassifier.classify(image_entries, tagger_results)
         if not outcome.has_any_success:
             logger.warning("no valid tagged images after filtering")
             return

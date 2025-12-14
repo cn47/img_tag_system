@@ -34,7 +34,7 @@ class TaggingOutcome:
         }
 
 
-class TaggintResultClassifier:
+class TaggingResultClassifier:
     """タグ付け結果を分類するクラス"""
 
     @staticmethod
