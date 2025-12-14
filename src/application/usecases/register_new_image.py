@@ -52,10 +52,10 @@ class RegisterNewImageUsecase:
             UnsupportedFileTypeError: サポートされていないファイル形式の画像があった場合
             TaggingError: タグ付けに失敗した場合
         """
-        logger.info("total input image files: %d", len(image_files))
         if not image_files:
             logger.warning("no input files")
             return
+        logger.info("total input image files: %d", len(image_files))
 
         # 1. メタデータ抽出とImageEntry作成
         image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_files)
@@ -88,7 +88,7 @@ class RegisterNewImageUsecase:
         if not outcome.has_any_success:
             logger.warning("no valid tagged images after filtering")
             return
-        logger.info("tagging result: %s", outcome.counts())
+        logger.info("tagging result: %s", outcome.counts)
 
         # 5. データベースへの永続化
         with self.unit_of_work:

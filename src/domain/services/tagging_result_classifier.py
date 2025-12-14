@@ -25,6 +25,7 @@ class TaggingOutcome:
         """タグ付けが1つでも成功したかどうかを返す"""
         return len(self.success) > 0
 
+    @property
     def counts(self) -> dict[str, int]:
         """タグ付けの結果の数を返す"""
         return {
@@ -32,6 +33,11 @@ class TaggingOutcome:
             "failure": len(self.failure),
             "empty": len(self.empty),
         }
+
+    @property
+    def total_count(self) -> int:
+        """タグ付けの結果の合計数を返す"""
+        return len(self.success) + len(self.failure) + len(self.empty)
 
 
 class TaggingResultClassifier:
