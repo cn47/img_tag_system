@@ -10,10 +10,10 @@ import onnxruntime
 
 from torchvision import transforms
 
-from infrastructure.configs.tagger import CamieV2TaggerModelConfig
-from common.exceptions import TaggingError
+from domain.exceptions import TaggingError
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
+from infrastructure.configs.tagger import CamieV2TaggerModelConfig
 from infrastructure.registry.adapter import TaggerAdapterRegistry
 from infrastructure.services.image_loader import PILImageLoader
 

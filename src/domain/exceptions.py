@@ -1,5 +1,4 @@
-class ApplicationError(Exception):
-    """アプリケーションのエラー"""
+"""ドメイン層の例外"""
 
 
 class DomainError(Exception):
@@ -21,6 +20,3 @@ class DuplicateImageError(DomainError):
 class ImageNotFoundError(DomainError):
     """画像が見つからないエラー"""
 
-
-class InfrastructureError(Exception):
-    """インフラストラクチャーのエラー"""

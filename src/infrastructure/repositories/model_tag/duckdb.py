@@ -4,10 +4,11 @@ import pandas as pd
 
 from duckdb import ConstraintException
 
-from common.exceptions import ImageNotFoundError, InfrastructureError
 from domain.entities.model_tag import ModelTagEntries, ModelTagEntry
+from domain.exceptions import ImageNotFoundError
 from domain.repositories.debugging import DebuggableRepository
 from domain.repositories.model_tag import ModelTagRepository
+from infrastructure.exceptions import InfrastructureError
 from infrastructure.registry.adapter import RepositoryAdapterRegistry
 from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 

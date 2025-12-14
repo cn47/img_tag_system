@@ -1,12 +1,13 @@
 import duckdb
 import pandas as pd
 
-from common.exceptions import DuplicateImageError, InfrastructureError
 from domain.entities.images import ImageEntry
+from domain.exceptions import DuplicateImageError
 from domain.repositories.debugging import DebuggableRepository
 from domain.repositories.images import ImagesRepository
 from domain.value_objects.file_location import FileLocation
 from domain.value_objects.image_hash import ImageHash
+from infrastructure.exceptions import InfrastructureError
 from infrastructure.registry.adapter import RepositoryAdapterRegistry
 from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 
