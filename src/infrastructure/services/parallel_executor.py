@@ -18,7 +18,7 @@ class ExecutionStrategy(str, Enum):
     PROCESS = "process"
 
 
-def execute_parallel[T](
+def execute[T](
     func: Callable[..., T],
     args_list: list[tuple[Any, ...]] | None = None,
     kwargs_list: list[dict[str, Any]] | None = None,

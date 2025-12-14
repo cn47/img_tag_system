@@ -4,6 +4,8 @@ from logging import getLogger
 from pathlib import Path
 from typing import Final
 
+import infrastructure.services.parallel_executor as pe
+
 from application.image_loader import ImageLoader
 from application.service.image_metadata_extractor import ImageMetadataExtractor
 from domain.entities.model_tag import ModelTagEntries
@@ -11,7 +13,6 @@ from domain.repositories.unit_of_work import UnitOfWorkProtocol
 from domain.services.image_deduplication import ImageDeduplicationService
 from domain.services.tagging_result_classifier import TaggingResultClassifier
 from domain.tagger.tagger import Tagger
-from infrastructure.services.parallel_executor import ExecutionStrategy, execute_parallel
 
 
 logger = getLogger(__name__)
@@ -72,11 +73,11 @@ class RegisterNewImageUsecase:
             return
 
         # 3. タグ付け処理
-        tagger_results_raw = execute_parallel(
+        tagger_results_raw = pe.execute(
             func=self.tagger.tag_image_file,
             args_list=[(str(image_entry.file_location),) for image_entry in image_entries],
             n_workers=n_workers,
-            strategy=ExecutionStrategy.THREAD,
+            strategy=pe.ExecutionStrategy.THREAD,
             show_progress=True,
             description="Tagging images",
             raise_on_error=False,
