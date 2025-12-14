@@ -1,7 +1,7 @@
 import importlib
 
 from types import ModuleType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 from infrastructure.registry.adapter import (
     RepositoryAdapterRegistry,
@@ -12,6 +12,7 @@ from infrastructure.registry.adapter import (
 
 if TYPE_CHECKING:
     from infrastructure.composition.runtime_config import RuntimeConfig
+    from infrastructure.configs.database import DataBaseConfig, DuckDBConfig
 
 
 class RuntimeFactory:
@@ -57,6 +58,9 @@ class RuntimeFactory:
 
         return cls.from_config(config)
 
+    def _is_duckdb_config(self, config: "DataBaseConfig") -> TypeGuard["DuckDBConfig"]:
+        return config.adapter_key == "duckdb"
+
     def create_database(self):
         """データベース
 
@@ -64,7 +68,7 @@ class RuntimeFactory:
         将来的に異なる実装が必要になった場合は、設定とレジストリを追加する。
         """
         config = self.config.database
-        if config.adapter_key == "duckdb":
+        if self._is_duckdb_config(config):
             import duckdb
 
             return duckdb.connect(config.database_file)
