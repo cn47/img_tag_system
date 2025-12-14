@@ -1,4 +1,4 @@
-from application.system.enums import DataBaseType, StorageType, TaggerType
+from infrastructure.composition.enums import DataBaseType, StorageType, TaggerType
 from infrastructure.composition.runtime_config import RuntimeConfig
 
 

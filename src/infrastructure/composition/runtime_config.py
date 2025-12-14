@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from application.system.enums import DataBaseType, RepositoryType, StorageType, TaggerType
+from infrastructure.composition.enums import DataBaseType, RepositoryType, StorageType, TaggerType
 from infrastructure.configs.database import DataBaseConfig
 from infrastructure.configs.repository import RepositoryConfigGroup
 from infrastructure.configs.storage import StorageConfig
