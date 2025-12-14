@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from application.configs.utils import get_project_root
-from application.system.registries import DatabaseConfigRegistry
+from common.path_utils import get_project_root
+from infrastructure.registry.config import DatabaseConfigRegistry
 
 
 @dataclass(frozen=True)
@@ -24,3 +24,4 @@ class DuckDBConfig(DataBaseConfig):
     @property
     def adapter_key(self) -> str:
         return "duckdb"
+

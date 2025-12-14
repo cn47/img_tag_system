@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from application.configs.utils import get_project_root
-from application.system.registries import TaggerConfigRegistry
+from common.path_utils import get_project_root
+from infrastructure.registry.config import TaggerConfigRegistry
 
 
 @dataclass(frozen=True)

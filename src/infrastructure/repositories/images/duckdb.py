@@ -7,7 +7,7 @@ from domain.repositories.debugging import DebuggableRepository
 from domain.repositories.images import ImagesRepository
 from domain.value_objects.file_location import FileLocation
 from domain.value_objects.image_hash import ImageHash
-from infrastructure.registries import RepositoryAdapterRegistry
+from infrastructure.registry.adapter import RepositoryAdapterRegistry
 from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 
 

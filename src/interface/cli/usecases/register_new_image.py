@@ -4,8 +4,8 @@ import logging
 
 from pathlib import Path
 
-from application.system.factory import RuntimeFactory
 from application.usecases.register_new_image import RegisterNewImageUsecase
+from infrastructure.composition.runtime_factory import RuntimeFactory
 from interface.config import app_config
 
 

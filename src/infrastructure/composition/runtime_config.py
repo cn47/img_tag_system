@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
-from application.configs.database import DataBaseConfig
-from application.configs.repository import RepositoryConfigGroup
-from application.configs.storage import StorageConfig
-from application.configs.tagger import TaggerModelConfig
 from application.system.enums import DataBaseType, RepositoryType, StorageType, TaggerType
-from application.system.registries import (
+from infrastructure.configs.database import DataBaseConfig
+from infrastructure.configs.repository import RepositoryConfigGroup
+from infrastructure.configs.storage import StorageConfig
+from infrastructure.configs.tagger import TaggerModelConfig
+from infrastructure.registry.config import (
     DatabaseConfigRegistry,
     RepositoryConfigRegistry,
     StorageConfigRegistry,
@@ -14,8 +14,11 @@ from application.system.registries import (
 
 
 @dataclass(frozen=True)
-class AppConfig:
-    """アプリケーションの設定"""
+class RuntimeConfig:
+    """ランタイム設定
+
+    RuntimeFactoryで使用する技術実装の選択と設定を保持する。
+    """
 
     storage: StorageConfig
     database: DataBaseConfig
@@ -27,7 +30,7 @@ class AppConfig:
         storage_type: StorageType,
         database_type: DataBaseType,
         tagger_type: TaggerType,
-    ) -> "AppConfig":
+    ) -> "RuntimeConfig":
         storage = StorageConfigRegistry(storage_type.value)
         database = DatabaseConfigRegistry(database_type.value)
         tagger = TaggerConfigRegistry(tagger_type.value)
@@ -44,16 +47,9 @@ class AppConfig:
             ),
         )
 
-        return AppConfig(
+        return RuntimeConfig(
             storage=storage,
             database=database,
             repository=repos,
             tagger=tagger,
         )
-
-
-default_config = AppConfig.build(
-    storage_type=StorageType.LOCAL,
-    database_type=DataBaseType.DUCKDB,
-    tagger_type=TaggerType.CAMIE_V2,
-)

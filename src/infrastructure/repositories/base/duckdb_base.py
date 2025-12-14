@@ -2,7 +2,7 @@ from pathlib import Path
 
 import duckdb
 
-from application.configs.repository import RepositoryConfig
+from infrastructure.configs.repository import RepositoryConfig
 
 
 class BaseDuckDBRepository:

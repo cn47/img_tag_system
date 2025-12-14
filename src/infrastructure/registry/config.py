@@ -1,4 +1,4 @@
-from common.registry import Registry
+from infrastructure.registry.core import Registry
 
 
 StorageConfigRegistry = Registry("storage_config")

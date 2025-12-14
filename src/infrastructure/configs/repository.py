@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from application.configs.database import DataBaseConfig
-from application.system.registries import RepositoryConfigRegistry
+from infrastructure.configs.database import DataBaseConfig
+from infrastructure.registry.config import RepositoryConfigRegistry
 
 
 @dataclass(frozen=True)
@@ -49,3 +49,4 @@ class ModelTagRepositoryConfig(RepositoryConfig):
     @property
     def adapter_key(self) -> str:
         return "model_tag"
+

@@ -3,7 +3,7 @@ import importlib
 from types import ModuleType
 from typing import TYPE_CHECKING
 
-from infrastructure.registries import (
+from infrastructure.registry.adapter import (
     RepositoryAdapterRegistry,
     StorageAdapterRegistry,
     TaggerAdapterRegistry,
@@ -11,7 +11,7 @@ from infrastructure.registries import (
 
 
 if TYPE_CHECKING:
-    from application.configs.app import AppConfig
+    from infrastructure.composition.runtime_config import RuntimeConfig
 
 
 class RuntimeFactory:
@@ -20,7 +20,7 @@ class RuntimeFactory:
     設定に応じて、Storage, Database, Repository, Taggerを作成する。
 
     Args:
-        config(AppConfig): アプリケーションの設定
+        config(RuntimeConfig): ランタイム設定
 
     Examples:
         >>> factory = RuntimeFactory(config)
@@ -30,7 +30,7 @@ class RuntimeFactory:
         >>> tagger = factory.create_tagger()
     """
 
-    def __init__(self, config: "AppConfig"):
+    def __init__(self, config: "RuntimeConfig"):
         self.config = config
 
     @staticmethod

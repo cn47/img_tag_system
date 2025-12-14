@@ -1,4 +1,4 @@
-from common.registry import NestedRegistry, Registry
+from infrastructure.registry.core import NestedRegistry, Registry
 
 
 StorageAdapterRegistry = Registry("storage_adapter")

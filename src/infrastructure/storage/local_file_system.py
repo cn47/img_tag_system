@@ -3,8 +3,8 @@ import os
 from collections.abc import Generator
 from pathlib import Path
 
-from application.configs.storage import LocalFileSystemConfig
-from infrastructure.registries import StorageAdapterRegistry
+from infrastructure.configs.storage import LocalFileSystemConfig
+from infrastructure.registry.adapter import StorageAdapterRegistry
 
 
 @StorageAdapterRegistry.register("local_file_system")

@@ -8,7 +8,7 @@ from common.exceptions import ImageNotFoundError, InfrastructureError
 from domain.entities.model_tag import ModelTagEntries, ModelTagEntry
 from domain.repositories.debugging import DebuggableRepository
 from domain.repositories.model_tag import ModelTagRepository
-from infrastructure.registries import RepositoryAdapterRegistry
+from infrastructure.registry.adapter import RepositoryAdapterRegistry
 from infrastructure.repositories.base.duckdb_base import BaseDuckDBRepository
 
 
