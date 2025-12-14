@@ -49,19 +49,28 @@ class TaggerResult:
 
     _original_tags: dict[str, list[tuple[str, float]]] = field(default_factory=dict)
 
+    @property
+    def _allowed_categories(self) -> tuple[str]:
+        return ("rating", "copyright", "character", "artist", "general")
+
     def __post_init__(self, tags: dict):
         self._original_tags = tags
         for category, pairs in self._original_tags.items():
+            if category not in self._allowed_categories:
+                continue
             tag_scores = TagScoreSequence(TagScore(tag, score) for tag, score in pairs)
             setattr(self, category, tag_scores)
 
     @property
     def categories(self) -> list[str]:
-        return list(self._original_tags.keys())
+        return self._allowed_categories
+
+    def is_empty(self) -> bool:
+        return self == TaggerResult(tags={})
 
     def show(self) -> None:
         """タグ情報をコンソールに表示する"""
-        for category in ["rating", "copyright", "character", "artist", "general"]:
+        for category in self._allowed_categories:
             items = self._original_tags.get(category, [])
             if not items:
                 continue

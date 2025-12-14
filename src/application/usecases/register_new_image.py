@@ -9,7 +9,7 @@ from application.service.image_metadata_extractor import ImageMetadataExtractor
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.unit_of_work import UnitOfWorkProtocol
 from domain.services.image_deduplication import ImageDeduplicationService
-from domain.services.tagging_result_filter import TaggingResultFilterService
+from domain.services.tagging_result_classifier import TaggintResultClassifier
 from domain.tagger.tagger import Tagger
 from infrastructure.services.parallel_executor import ExecutionStrategy, execute_parallel
 
@@ -53,14 +53,23 @@ class RegisterNewImageUsecase:
             TaggingError: タグ付けに失敗した場合
         """
         logger.info("total input image files: %d", len(image_files))
+        if not image_files:
+            logger.warning("no input files")
+            return
 
         # 1. メタデータ抽出とImageEntry作成
         image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_files)
+        if not image_entries:
+            logger.warning("no valid image entries")
+            return
 
         # 2. 既存画像の重複チェック
         existing_image_entries = self.unit_of_work["images"].find_by_hashes([entry.hash for entry in image_entries])
         existing_hash_set = {entry.hash for entry in existing_image_entries}
         image_entries = ImageDeduplicationService.filter_duplicates(image_entries, existing_hash_set)
+        if not image_entries:
+            logger.warning("no valid image entries after duplicate check")
+            return
 
         # 3. タグ付け処理
         tagger_results_raw = execute_parallel(
@@ -75,17 +84,22 @@ class RegisterNewImageUsecase:
 
         # 4. タグ付けできた画像のみを抽出（ExceptionをNoneに変換）
         tagger_results = [result if not isinstance(result, Exception) else None for result in tagger_results_raw]
-        filtered_results = TaggingResultFilterService.filter_tagged_images(image_entries, tagger_results)
+        outcome = TaggintResultClassifier.classify(image_entries, tagger_results)
+        if not outcome.has_any_success:
+            logger.warning("no valid tagged images after filtering")
+            return
+        logger.info("tagging result: %s", outcome.counts())
 
         # 5. データベースへの永続化
         with self.unit_of_work:
             # images table insert
-            image_ids = self.unit_of_work["images"].insert([result.image_entry for result in filtered_results])
+            image_ids = self.unit_of_work["images"].insert([result.image_entry for result in outcome.success])
+            print(image_ids)
 
             # model_tag table insert
             model_tag_entries_list = [
                 ModelTagEntries.from_tagger_result(image_id=image_id, tags=result.tagger_result)
-                for image_id, result in zip(image_ids, filtered_results, strict=True)
+                for image_id, result in zip(image_ids, outcome.success, strict=True)
             ]
             self.unit_of_work["model_tag"].insert(model_tag_entries_list)
 
