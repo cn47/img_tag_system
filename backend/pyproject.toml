@@ -1,6 +1,6 @@
 
 [project]
-name = "image-tagger"
+name = "image-tagger" # 暫定名
 version = "0.1.0"
 description = "Image Management System powered by image tagging model"
 authors = [{ name = "cn47" }]
@@ -76,10 +76,12 @@ ignore = [
   "ERA001", # コメントアウトされたコードをOK
   "RET504", # 直接returnしなくてもOK
   "RUF002", # Docstring contains ambiguous `）` (FULLWIDTH RIGHT PARENTHESIS). Did you mean `)` (RIGHT PARENTHESIS)?
+  "RUF003", # Comment contains ambiguous `）` (FULLWIDTH RIGHT PARENTHESIS). Did you mean `)` (RIGHT PARENTHESIS)?
   "D102", # Missing docstring in override
   "D105", # Missing docstring in magic method
   "S608", # SQL injection vulnerability
   "TRY003", # Avoid specifying long messages outside the exception class
+  "EM101", # Exception must not use a string literal, assign to variable first
 ]
 
 [tool.ruff.flake8-tidy-imports]
