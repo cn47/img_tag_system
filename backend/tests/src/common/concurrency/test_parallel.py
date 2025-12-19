@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import infrastructure.services.parallel_executor as pe
+import common.concurrency.parallel as parallel
 
 
 # ----------------------------
@@ -118,11 +118,11 @@ class TestExecuteParallelValid:
         args_list_small: list[tuple[int, ...]],
     ) -> None:
         """argsのみを使用する場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=args_list_small,
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -135,11 +135,11 @@ class TestExecuteParallelValid:
         kwargs_list_small: list[dict[str, str]],
     ) -> None:
         """kwargsのみを使用する場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=process_file,
             kwargs_list=kwargs_list_small,
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -153,12 +153,12 @@ class TestExecuteParallelValid:
 
     def test_args_and_kwargs(self) -> None:
         """argsとkwargsの両方を使用する場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=process_item,
             args_list=[(i,) for i in range(4)],
             kwargs_list=[{"prefix": "item_", "suffix": "_processed", "multiplier": 2} for _ in range(4)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -171,7 +171,7 @@ class TestExecuteParallelValid:
 
     def test_different_arguments(self) -> None:
         """異なる引数の組み合わせのテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=calculate_sum,
             args_list=[(1, 2), (3, 4), (5, 6)],
             kwargs_list=[
@@ -180,7 +180,7 @@ class TestExecuteParallelValid:
                 {},
             ],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -192,11 +192,11 @@ class TestExecuteParallelValid:
 
     def test_no_args_task(self) -> None:
         """引数なしのタスクのテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=no_args_task,
             args_list=[() for _ in range(3)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -206,7 +206,7 @@ class TestExecuteParallelValid:
 
     def test_empty_list(self) -> None:
         """空のリストの場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=[],
             n_workers=1,
@@ -219,11 +219,11 @@ class TestExecuteParallelValid:
         """ProcessPoolExecutorを使用する場合のテスト"""
         # ProcessPoolExecutorでは、モジュールレベルの関数を使用する必要がある
         # （ローカル関数はpickleできないため）
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,  # モジュールレベルの関数を使用
             args_list=[(i,) for i in range(1, 4)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.PROCESS,
+            strategy=parallel.ExecutionStrategy.PROCESS,
             show_progress=False,
         )
 
@@ -234,11 +234,11 @@ class TestExecuteParallelValid:
 
     def test_result_order(self) -> None:
         """結果の順序が入力の順序と一致することを確認"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=[(i,) for i in range(10)],
             n_workers=4,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -253,11 +253,11 @@ class TestExecuteParallelValid:
         args_list_large: list[tuple[int, ...]],
     ) -> None:
         """大量のタスクを処理する場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=args_list_large,
             n_workers=8,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -267,28 +267,28 @@ class TestExecuteParallelValid:
 
     def test_single_worker(self) -> None:
         """単一ワーカーの場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=[(i,) for i in range(5)],
             n_workers=1,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
         assert len(results) == 5
         assert all(not isinstance(r, Exception) for r in results)
 
-    @patch("infrastructure.services.parallel_executor.tqdm")
+    @patch("common.concurrency.parallel.tqdm")
     def test_show_progress_true(self, mock_tqdm: MagicMock) -> None:
         """進捗バーが表示される場合のテスト"""
         mock_tqdm.return_value.__enter__ = MagicMock(return_value=iter([]))
         mock_tqdm.return_value.__exit__ = MagicMock(return_value=False)
 
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=[(i,) for i in range(3)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=True,
             description="Test progress",
         )
@@ -299,28 +299,28 @@ class TestExecuteParallelValid:
 
     def test_show_progress_false(self) -> None:
         """進捗バーが表示されない場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=[(i,) for i in range(3)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
         assert len(results) == 3
         assert all(not isinstance(r, Exception) for r in results)
 
-    @patch("infrastructure.services.parallel_executor.tqdm")
+    @patch("common.concurrency.parallel.tqdm")
     def test_custom_description(self, mock_tqdm: MagicMock) -> None:
         """カスタム説明文が設定される場合のテスト"""
         mock_tqdm.return_value.__enter__ = MagicMock(return_value=iter([]))
         mock_tqdm.return_value.__exit__ = MagicMock(return_value=False)
 
-        pe.execute(
+        parallel.execute(
             func=simple_task,
             args_list=[(i,) for i in range(3)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=True,
             description="Custom description",
         )
@@ -334,12 +334,12 @@ class TestExecuteParallelValid:
 
     def test_args_list_only_with_none_kwargs(self) -> None:
         """args_listのみでkwargs_listがNoneの場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=simple_task,
             args_list=[(i,) for i in range(3)],
             kwargs_list=None,
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -349,7 +349,7 @@ class TestExecuteParallelValid:
 
     def test_kwargs_list_only_with_none_args(self) -> None:
         """kwargs_listのみでargs_listがNoneの場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=process_file,
             args_list=None,
             kwargs_list=[
@@ -357,7 +357,7 @@ class TestExecuteParallelValid:
                 for i in range(3)
             ],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
         )
 
@@ -380,7 +380,7 @@ class TestExecuteParallelInvalid:
     def test_empty_args_and_kwargs(self) -> None:
         """args_listとkwargs_listの両方がNoneの場合のテスト"""
         with pytest.raises(ValueError, match="args_list and kwargs_list must be provided"):
-            pe.execute(
+            parallel.execute(
                 func=simple_task,
                 args_list=None,
                 kwargs_list=None,
@@ -390,7 +390,7 @@ class TestExecuteParallelInvalid:
     def test_different_length_args_and_kwargs(self) -> None:
         """args_listとkwargs_listの長さが異なる場合のテスト"""
         with pytest.raises(ValueError, match="must have the same length"):
-            pe.execute(
+            parallel.execute(
                 func=process_item,
                 args_list=[(1,), (2,)],
                 kwargs_list=[{"prefix": "item_"}],
@@ -399,11 +399,11 @@ class TestExecuteParallelInvalid:
 
     def test_error_handling(self) -> None:
         """エラーハンドリングのテスト（raise_on_error=False）"""
-        results = pe.execute(
+        results = parallel.execute(
             func=task_with_error,
             args_list=[(i,) for i in range(10)],
             n_workers=2,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
             raise_on_error=False,
         )
@@ -417,22 +417,22 @@ class TestExecuteParallelInvalid:
     def test_error_handling_raise(self) -> None:
         """エラー時に例外を発生させる場合のテスト（raise_on_error=True）"""
         with pytest.raises(ValueError, match="Error occurred for n=5"):
-            pe.execute(
+            parallel.execute(
                 func=task_with_error,
                 args_list=[(5,)],
                 n_workers=1,
-                strategy=pe.ExecutionStrategy.THREAD,
+                strategy=parallel.ExecutionStrategy.THREAD,
                 show_progress=False,
                 raise_on_error=True,
             )
 
     def test_mixed_success_and_error(self) -> None:
         """成功とエラーが混在する場合のテスト"""
-        results = pe.execute(
+        results = parallel.execute(
             func=mixed_task,
             args_list=[(i,) for i in range(10)],
             n_workers=3,
-            strategy=pe.ExecutionStrategy.THREAD,
+            strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=False,
             raise_on_error=False,
         )

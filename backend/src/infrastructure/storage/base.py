@@ -6,3 +6,6 @@ class StoragePath(StoragePathProtocol):
         from infrastructure.storage.factory import StoragePathFactory
 
         return StoragePathFactory.create(path)
+
+    def __str__(self) -> str:
+        return str(self)

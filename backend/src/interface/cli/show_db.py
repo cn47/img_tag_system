@@ -1,8 +1,8 @@
 """データベース内容を表示するCLI"""
 
-from application.system.factory import RuntimeFactory
+from infrastructure.composition.runtime_factory import RuntimeFactory
 from interface.cli.utils.pandas_display import set_pandas_display_options
-from interface.config import app_config
+from interface.config import runtime_config
 
 
 class ShowDBCLI:
@@ -10,7 +10,7 @@ class ShowDBCLI:
 
     def __init__(self) -> None:
         """ShowDBCLIを初期化する"""
-        self.config = app_config
+        self.config = runtime_config
         self.factory = RuntimeFactory(self.config)
 
     def images(self, limit: int = 20) -> None:

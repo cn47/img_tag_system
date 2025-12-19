@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from common.path_utils import get_project_root
+from common.path.project import get_root
 from infrastructure.registry.config import TaggerConfigRegistry
 
 
@@ -19,7 +19,7 @@ class TaggerModelConfig:
 class CamieV2TaggerModelConfig(TaggerModelConfig):
     """Camie V2モデルの設定"""
 
-    model_dir: Path = field(default_factory=lambda: get_project_root() / "data" / "model" / "camie-tagger-v2")
+    model_dir: Path = field(default_factory=lambda: get_root() / "data" / "model" / "camie-tagger-v2")
     threshold: float = 0.0
 
     @property
@@ -29,4 +29,3 @@ class CamieV2TaggerModelConfig(TaggerModelConfig):
     @property
     def adapter_key(self) -> str:
         return "camie_v2"
-
