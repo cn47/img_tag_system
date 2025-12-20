@@ -1,14 +1,15 @@
-from pathlib import Path
+from io import BytesIO
 from unittest.mock import MagicMock
 
 import pytest
 
-from application.image_loader import ImageLoader
+from PIL import Image
+
+from application.service.tagging_result_classifier import TaggedImageEntry, TaggingOutcome
+from application.storage.ports import Storage
 from application.usecases.register_new_image import RegisterNewImageUsecase
 from domain.entities.images import ImageEntry, ImageMetadata
-from domain.exceptions import TaggingError, UnsupportedFileTypeError
 from domain.repositories.unit_of_work import UnitOfWorkProtocol
-from domain.services.tagging_result_classifier import TaggedImageEntry, TaggingOutcome
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
 from domain.value_objects.file_location import FileLocation
@@ -43,13 +44,19 @@ def mock_unit_of_work() -> UnitOfWorkProtocol:
 
 
 @pytest.fixture
-def mock_image_loader() -> ImageLoader:
-    """ImageLoaderのモック"""
-    loader = MagicMock(spec=ImageLoader)
-    loader.load_binary = MagicMock(return_value=b"fake_image_binary_data")
-    loader.extract_size = MagicMock(return_value=ImageSize(width=1920, height=1080))
-    loader.get_file_size = MagicMock(return_value=1024 * 1024)  # 1MB
-    return loader
+def mock_storage() -> Storage:
+    """Storageのモック"""
+    storage = MagicMock(spec=Storage)
+    # PILで読み込める形式のダミー画像データを作成
+    dummy_image = Image.new("RGB", (1920, 1080), color="red")
+    image_bytes = BytesIO()
+    dummy_image.save(image_bytes, format="JPEG")
+    image_bytes.seek(0)
+
+    storage.read_binary = MagicMock(return_value=image_bytes.getvalue())
+    storage.get_size = MagicMock(return_value=1024 * 1024)  # 1MB
+    storage.get_file_extension = MagicMock(return_value="jpg")
+    return storage
 
 
 @pytest.fixture
@@ -65,16 +72,18 @@ def mock_tagger() -> Tagger:
 
 
 @pytest.fixture
-def image_files_one():
-    return [Path("tests/data/images/test.jpg")]
+def image_files_one() -> list[str]:
+    """1つの画像ファイルパスのリスト"""
+    return ["tests/data/images/test.jpg"]
 
 
 @pytest.fixture
-def image_files_many():
+def image_files_many() -> list[str]:
+    """複数の画像ファイルパスのリスト"""
     return [
-        Path("tests/data/images/test.jpg"),
-        Path("tests/data/images/test.png"),
-        Path("tests/data/images/test.webp"),
+        "tests/data/images/test.jpg",
+        "tests/data/images/test.png",
+        "tests/data/images/test.webp",
     ]
 
 
@@ -135,9 +144,9 @@ def make_tagged_image_entry() -> TaggedImageEntry:
     return TaggedImageEntry(image_entry=MagicMock(), tagger_result=MagicMock())
 
 
-def create_image_entry(file_path: Path, hash_value: str = "a" * 64) -> ImageEntry:
+def create_image_entry(file_path: str, hash_value: str = "a" * 64) -> ImageEntry:
     """ImageEntryを作成するヘルパー関数"""
-    file_location = FileLocation(str(file_path))
+    file_location = FileLocation(file_path)
     image_hash = ImageHash(hash_value)
     image_size = ImageSize(width=1920, height=1080)
 
@@ -152,19 +161,19 @@ def create_image_entry(file_path: Path, hash_value: str = "a" * 64) -> ImageEntr
     return ImageEntry.from_metadata(metadata)
 
 
-def assert_metadata_extraction_call_count(image_loader: ImageLoader, expected_count: int):
+def assert_metadata_extraction_call_count(storage: Storage, expected_count: int) -> None:
     """メタデータ抽出が呼ばれたかを検証するヘルパー関数"""
     if expected_count == 0:
-        image_loader.load_binary.assert_not_called()
-        image_loader.extract_size.assert_not_called()
-        image_loader.get_file_size.assert_not_called()
+        storage.read_binary.assert_not_called()
+        storage.get_size.assert_not_called()
+        storage.get_file_extension.assert_not_called()
     else:
-        assert image_loader.load_binary.call_count == expected_count
-        assert image_loader.extract_size.call_count == expected_count
-        assert image_loader.get_file_size.call_count == expected_count
+        assert storage.read_binary.call_count == expected_count
+        assert storage.get_size.call_count == expected_count
+        assert storage.get_file_extension.call_count == expected_count
 
 
-def assert_insert_call_count(repository: MagicMock, expected_count: int):
+def assert_insert_call_count(repository: MagicMock, expected_count: int) -> None:
     """insertの呼び出し回数と引数の数を検証するヘルパー関数"""
     if expected_count == 0:
         repository.insert.assert_not_called()
@@ -188,22 +197,22 @@ class TestRegisterNewImageUsecaseValid:
 
     def test_handle_one_image(
         self,
-        image_files_one: list[Path],
+        image_files_one: list[str],
         tagger_result: TaggerResult,
         mock_unit_of_work: UnitOfWorkProtocol,
-        mock_image_loader: ImageLoader,
+        mock_storage: Storage,
         mock_tagger: Tagger,
-    ):
+    ) -> None:
         """1件の画像を登録する"""
         # セットアップ
         usecase = RegisterNewImageUsecase(
             unit_of_work=mock_unit_of_work,
             tagger=mock_tagger,
-            image_loader=mock_image_loader,
+            storage=mock_storage,
         )
 
         # タガーのモック設定
-        mock_tagger.tag_image_file = MagicMock(return_value=tagger_result)
+        mock_tagger.tag = MagicMock(return_value=tagger_result)
 
         # リポジトリのモック設定
         images_repo = mock_unit_of_work["images"]
@@ -214,13 +223,13 @@ class TestRegisterNewImageUsecaseValid:
 
         # 検証
         # 1. メタデータ抽出が呼ばれたか
-        assert_metadata_extraction_call_count(mock_image_loader, 1)
+        assert_metadata_extraction_call_count(mock_storage, 1)
 
         # 2. 重複チェックが呼ばれたか
         assert images_repo.find_by_hashes.called
 
         # 3. タグ付けが呼ばれたか
-        assert mock_tagger.tag_image_file.called
+        assert mock_tagger.tag.called
 
         # 4.データベースへの永続化が呼ばれたか
         assert_insert_call_count(images_repo, 1)
@@ -231,22 +240,22 @@ class TestRegisterNewImageUsecaseValid:
 
     def test_handle_many_images(
         self,
-        image_files_many: list[Path],
+        image_files_many: list[str],
         tagger_results: list[TaggerResult],
         mock_unit_of_work: UnitOfWorkProtocol,
-        mock_image_loader: ImageLoader,
+        mock_storage: Storage,
         mock_tagger: Tagger,
-    ):
+    ) -> None:
         """複数件の画像を登録する"""
         # セットアップ
         usecase = RegisterNewImageUsecase(
             unit_of_work=mock_unit_of_work,
             tagger=mock_tagger,
-            image_loader=mock_image_loader,
+            storage=mock_storage,
         )
 
         # タガーのモック設定（複数の結果を返す）
-        mock_tagger.tag_image_file = MagicMock(side_effect=tagger_results)
+        mock_tagger.tag = MagicMock(side_effect=tagger_results)
 
         # リポジトリのモック設定（複数のIDを返す）
         images_repo = mock_unit_of_work["images"]
@@ -258,10 +267,10 @@ class TestRegisterNewImageUsecaseValid:
 
         # 検証
         # 1. メタデータ抽出が呼ばれたか（3回）
-        assert_metadata_extraction_call_count(mock_image_loader, 3)
+        assert_metadata_extraction_call_count(mock_storage, 3)
 
         # 2. タグ付けが呼ばれたか（3回）
-        assert mock_tagger.tag_image_file.call_count == 3
+        assert mock_tagger.tag.call_count == 3
 
         # 3. データベースへの永続化が呼ばれたか
         assert_insert_call_count(images_repo, 3)
@@ -273,15 +282,15 @@ class TestRegisterNewImageUsecaseValid:
     def test_empty_image_files_input(
         self,
         mock_unit_of_work: UnitOfWorkProtocol,
-        mock_image_loader: ImageLoader,
+        mock_storage: Storage,
         mock_tagger: Tagger,
-    ):
+    ) -> None:
         """空の画像ファイルリストが入力される"""
         # セットアップ
         usecase = RegisterNewImageUsecase(
             unit_of_work=mock_unit_of_work,
             tagger=mock_tagger,
-            image_loader=mock_image_loader,
+            storage=mock_storage,
         )
 
         # リポジトリのモック設定
@@ -293,9 +302,9 @@ class TestRegisterNewImageUsecaseValid:
 
         # 検証
         # 何も呼ばれない
-        assert_metadata_extraction_call_count(mock_image_loader, 0)
+        assert_metadata_extraction_call_count(mock_storage, 0)
 
-        assert not mock_tagger.tag_image_file.called
+        assert not mock_tagger.tag.called
 
         assert_insert_call_count(images_repo, 0)
         assert_insert_call_count(model_tag_repo, 0)
@@ -325,15 +334,15 @@ class TestRegisterNewImageUsecaseValid:
         monkeypatch: pytest.MonkeyPatch,
         outcome: TaggingOutcome,
         expected_insert_count: int,
-        image_files_one: list[Path],
+        image_files_one: list[str],
         mock_unit_of_work: UnitOfWorkProtocol,
-        mock_image_loader: ImageLoader,
+        mock_storage: Storage,
         mock_tagger: Tagger,
-    ):
+    ) -> None:
         """タグ付け結果に異常ケースが含まれていた場合の処理スキップ"""
         # monkeypatchをあててclassifyメソッドを差し替え
         monkeypatch.setattr(
-            "domain.services.tagging_result_classifier.TaggingResultClassifier.classify",
+            "application.service.tagging_result_classifier.TaggingResultClassifier.classify",
             lambda *_: outcome,
         )
 
@@ -341,11 +350,11 @@ class TestRegisterNewImageUsecaseValid:
         usecase = RegisterNewImageUsecase(
             unit_of_work=mock_unit_of_work,
             tagger=mock_tagger,
-            image_loader=mock_image_loader,
+            storage=mock_storage,
         )
 
         # タガーのモック設定
-        mock_tagger.tag_image_file = MagicMock()
+        mock_tagger.tag = MagicMock()
 
         # リポジトリのモック設定
         images_repo = mock_unit_of_work["images"]
@@ -356,7 +365,7 @@ class TestRegisterNewImageUsecaseValid:
 
         # 検証
         # 1. メタデータ抽出が呼ばれたか
-        assert_metadata_extraction_call_count(mock_image_loader, 1)
+        assert_metadata_extraction_call_count(mock_storage, 1)
 
         # 2. データベースへの永続化が呼ばれたか
         assert_insert_call_count(images_repo, expected_insert_count)
@@ -379,23 +388,26 @@ class TestRegisterNewImageUsecaseInvalid:
 
     def test_unsupported_file_type_input(
         self,
-        image_files_one: list[Path],
+        image_files_one: list[str],
         mock_unit_of_work: UnitOfWorkProtocol,
-        mock_image_loader: ImageLoader,
+        mock_storage: Storage,
         mock_tagger: Tagger,
-    ):
+    ) -> None:
         """サポートされていないファイル形式の画像が入力される"""
         # セットアップ
         usecase = RegisterNewImageUsecase(
             unit_of_work=mock_unit_of_work,
             tagger=mock_tagger,
-            image_loader=mock_image_loader,
+            storage=mock_storage,
         )
 
         # サポートされていないファイル形式のエラーを発生させる
-        # ImageMetadataExtractorは例外をキャッチしてNoneを返すので、
+        # ImageMetadataExtractorはUnidentifiedImageErrorをキャッチしてNoneを返すので、
         # extract_from_filesは空のリストを返す
-        mock_image_loader.load_binary = MagicMock(side_effect=UnsupportedFileTypeError("Unsupported file type"))
+        # read_binaryで読み込んだ後、PIL.Image.openでUnidentifiedImageErrorが発生するようにする
+        mock_storage.read_binary = MagicMock(return_value=b"invalid_image_data")
+        mock_storage.get_size = MagicMock(return_value=1024)
+        mock_storage.get_file_extension = MagicMock(return_value="jpg")
 
         # リポジトリのモック設定
         images_repo = mock_unit_of_work["images"]
@@ -406,9 +418,9 @@ class TestRegisterNewImageUsecaseInvalid:
 
         # 検証
         # 1. メタデータ抽出は試みられた
-        mock_image_loader.load_binary.assert_called_once()
-        mock_image_loader.extract_size.assert_not_called()
-        mock_image_loader.get_file_size.assert_not_called()
+        mock_storage.read_binary.assert_called_once()
+        mock_storage.get_size.assert_not_called()
+        mock_storage.get_file_extension.assert_not_called()
 
         # 2. データベースへの永続化が呼ばれたか
         # 画像は挿入されない（メタデータ抽出失敗によりフィルタリングされる）
