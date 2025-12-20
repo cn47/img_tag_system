@@ -3,6 +3,7 @@ import importlib
 from types import ModuleType
 from typing import TYPE_CHECKING, TypeGuard
 
+from application.storage.client import Storage
 from infrastructure.registry.adapter import (
     RepositoryAdapterRegistry,
     StorageAdapterRegistry,
@@ -54,9 +55,10 @@ class RuntimeFactory:
 
         self._load_adapter(module_path)
 
-        cls = StorageAdapterRegistry[config.adapter_key]
+        accessor_cls = StorageAdapterRegistry.get(config.adapter_key, "accessor")
+        operator_cls = StorageAdapterRegistry.get(config.adapter_key, "operator")
 
-        return cls.from_config(config)
+        return Storage(accessor=accessor_cls.from_config(config), operator=operator_cls.from_config(config))
 
     def _is_duckdb_config(self, config: "DataBaseConfig") -> TypeGuard["DuckDBConfig"]:
         return config.adapter_key == "duckdb"
@@ -115,6 +117,6 @@ class RuntimeFactory:
         NOTE: 現状は設定不要で、常にPILImageLoaderを使用する。
         将来的に異なる実装が必要になった場合は、設定とレジストリを追加する。
         """
-        from infrastructure.services.image_loader import PILImageLoader
+        from infrastructure.image_loader.pil import PILImageLoader
 
         return PILImageLoader()
