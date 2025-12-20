@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from logging import getLogger
 from typing import Final
 
-import common.concurrency.parallel as parallel
-
 from application.service.image_deduplication import ImageDeduplicationService
 from application.service.image_metadata_extractor import ImageMetadataExtractor
 from application.service.tagging_result_classifier import TaggingResultClassifier
 from application.storage.ports import Storage
+from common.concurrency import parallel
+from common.decorators.chunk_processor import ChunkInfo, chunk_processor
 from domain.entities.images import ImageEntry
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.unit_of_work import UnitOfWorkProtocol
@@ -85,20 +85,26 @@ class RegisterNewImageUsecase:
     def _tag(self, image_binary: bytes) -> TaggerResult:
         return self.tagger.tag(image_binary)
 
-    def handle(self, image_files: list[str], n_workers: int = 8) -> None:
+    @chunk_processor("image_files", default_chunk_size=1000)
+    def _handle(self, image_files: list[str], n_workers: int = 8, chunk_info: ChunkInfo | None = None) -> None:
         """画像ディレクトリ内のすべての画像を登録する
+
+        chunk_processorによって分割された画像ファイルのリストを処理する
 
         Args:
             image_files(list[str]): 画像ファイルのパスのリスト
             n_workers(int): タグ付けの並列処理の最大並列数
+            chunk_info(ChunkInfo | None): 現在のチャンク処理に関する情報
+                - current_idx: 現在のチャンク番号
+                - total_chunks: 全チャンク数
+                - offset: 全体の中の開始インデックス
+                - is_first: 最初のチャンクかどうか
+                - is_last: 最後のチャンクかどうか
 
         Raises:
             TaggingError: タグ付けに失敗した場合
         """
-        if not image_files:
-            logger.warning("no input files")
-            return
-        logger.info("total input image files: %d", len(image_files))
+        desc_prefix = f"[{chunk_info.current_idx}/{chunk_info.total_chunks}] " if chunk_info else ""
 
         # 1. バイナリデータを読み込み、メタデータを抽出する
         pairs = parallel.execute(
@@ -107,7 +113,7 @@ class RegisterNewImageUsecase:
             n_workers=n_workers,
             strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=True,
-            description="Extracting metadata",
+            description=f"{desc_prefix}Extracting metadata",
             raise_on_error=False,
         )
         pairs = _ImageEntryBinaryPairs([pair for pair in pairs if not isinstance(pair, Exception)])
@@ -137,7 +143,7 @@ class RegisterNewImageUsecase:
             n_workers=n_workers,
             strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=True,
-            description="Tagging images",
+            description=f"{desc_prefix}Tagging images",
             raise_on_error=False,
         )
 
@@ -161,5 +167,21 @@ class RegisterNewImageUsecase:
             ]
             self.unit_of_work["model_tag"].insert(model_tag_entries_list)
 
-            logger.info("total registered images: %d", len(image_ids))
-            logger.info("total registered model_tag_entries: %d", len(model_tag_entries_list))
+            logger.debug("total registered images: %d", len(image_ids))
+            logger.debug("total registered model_tag_entries: %d", len(model_tag_entries_list))
+
+    def handle(self, image_files: list[str], n_workers: int = 8) -> None:
+        """画像ディレクトリ内のすべての画像を登録する
+
+        Args:
+            image_files(list[str]): 画像ファイルのパスのリスト
+            n_workers(int): タグ付けの並列処理の最大並列数
+        """
+        if not image_files:
+            logger.warning("no input files")
+            return
+        logger.info("total input image files: %d", len(image_files))
+
+        self._handle(image_files, n_workers=n_workers)
+
+        logger.info("completed")

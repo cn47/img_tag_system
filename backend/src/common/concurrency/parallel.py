@@ -84,7 +84,7 @@ def execute[T](
 
         iterator = as_completed(futures)
         if show_progress:
-            iterator = tqdm(iterator, total=num_tasks, desc=description)
+            iterator = tqdm(iterator, total=num_tasks, desc=description, leave=False)
 
         for future in iterator:
             idx = futures[future]
