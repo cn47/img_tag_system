@@ -2,20 +2,22 @@
 
 import json
 
+from io import BytesIO
 from pathlib import Path
 from typing import Final
 
 import numpy as np
 import onnxruntime
 
+from PIL import Image
 from torchvision import transforms
 
+from application.storage.ports import Storage
 from domain.exceptions import TaggingError
 from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
 from infrastructure.configs.tagger import CamieV2TaggerModelConfig
 from infrastructure.registry.adapter import TaggerAdapterRegistry
-from infrastructure.services.image_loader import PILImageLoader
 
 
 @TaggerAdapterRegistry.register("camie_v2")
@@ -25,7 +27,7 @@ class CamieTaggerV2(Tagger):
     モデルについて: Camais03/camie-tagger-v2 · Hugging Face](https://huggingface.co/Camais03/camie-tagger-v2)
     """
 
-    def __init__(self, model_dir: str | Path, threshold: float = 0.5) -> None:
+    def __init__(self, model_dir: str, threshold: float = 0.5) -> None:
         """初期化
 
         Args:
@@ -48,8 +50,8 @@ class CamieTaggerV2(Tagger):
 
         """
         self.threshold = threshold
-        self.model_file: Final[Path] = Path(model_dir) / "camie-tagger-v2.onnx"
-        self.metadata_file: Final[Path] = Path(model_dir) / "camie-tagger-v2-metadata.json"
+        self.model_file: Final[str] = str(Path(model_dir) / "camie-tagger-v2.onnx")
+        self.metadata_file: Final[str] = str(Path(model_dir) / "camie-tagger-v2-metadata.json")
 
         self.tag_to_idx: dict = {}
         self.tag_to_category: dict = {}
@@ -60,7 +62,7 @@ class CamieTaggerV2(Tagger):
     def from_config(cls, config: CamieV2TaggerModelConfig) -> "CamieTaggerV2":
         return cls(model_dir=config.model_dir, threshold=config.threshold)
 
-    def _load_tag_mappings(self) -> tuple[dict, dict]:
+    def _load_tag_mappings(self, storage: Storage) -> tuple[dict, dict]:
         """メタデータJSONからタグ関連情報を読み込む
 
         Returns:
@@ -68,8 +70,8 @@ class CamieTaggerV2(Tagger):
                 - tag_to_idx: タグ名 -> インデックス
                 - tag_to_category: タグ名 -> カテゴリ
         """
-        with self.metadata_file.open("r", encoding="utf-8") as f:
-            metadata = json.load(f)
+        metadata_json = storage.read_text(self.metadata_file)
+        metadata = json.loads(metadata_json)
 
         tag_to_idx = metadata["dataset_info"]["tag_mapping"]["tag_to_idx"]
         tag_to_category = metadata["dataset_info"]["tag_mapping"]["tag_to_category"]
@@ -85,23 +87,22 @@ class CamieTaggerV2(Tagger):
         session = onnxruntime.InferenceSession(self.model_file, providers=providers)
         return session
 
-    def initialize(self) -> None:
+    def initialize(self, storage: Storage) -> None:
         """モデルとメタデータの読み込み、推論セッションの開始"""
-        self.tag_to_idx, self.tag_to_category = self._load_tag_mappings()
+        self.tag_to_idx, self.tag_to_category = self._load_tag_mappings(storage)
         self.session = self._start_session()
         self.input_name = self.session.get_inputs()[0].name
 
-    def _preprocess_image(self, image_file: str | Path) -> np.ndarray:
+    def _preprocess_image(self, image_binary: bytes) -> np.ndarray:
         """画像を読み込み、モデルに入力できるテンソルへ変換する
 
         Args:
-            image_file(str | Path): 画像ファイル
+            image_binary(bytes): 画像バイナリ
 
         Returns:
             np.ndarray: モデルに入力できるテンソル
         """
-        image_path = Path(image_file)
-        image = PILImageLoader.load_image(image_path).convert("RGB")
+        image = Image.open(BytesIO(image_binary)).convert("RGB")
 
         transform = transforms.Compose(
             [
@@ -138,9 +139,9 @@ class CamieTaggerV2(Tagger):
 
         return categorized_tags
 
-    def tag_image_file(self, image_file: str | Path) -> TaggerResult:
+    def tag(self, image_binary: bytes) -> TaggerResult:
         try:
-            input_tensor = self._preprocess_image(image_file)
+            input_tensor = self._preprocess_image(image_binary)
             if self.session is None:
                 msg = "The model session is not initialized. Call 'initialize()' first."
                 raise RuntimeError(msg)
@@ -151,4 +152,4 @@ class CamieTaggerV2(Tagger):
             tag_scores = {tag: float(pred[idx]) for tag, idx in self.tag_to_idx.items() if pred[idx] >= self.threshold}
             return TaggerResult(tags=self._categorize_tag_scores(tag_scores))
         except Exception as e:
-            raise TaggingError(f"Tagging failed: {image_file}") from e
+            raise TaggingError(f"Tagging failed: {e}") from e

@@ -20,8 +20,14 @@ class Storage(StoragePort):
     def get_size(self, path: str) -> int:
         return self._accessor.get_size(path)
 
-    def read_file(self, path: str, mode: str = "r") -> str | bytes:
-        return self._accessor.read_file(path, mode)
+    def read_binary(self, path: str) -> bytes:
+        return self._accessor.read_binary(path)
+
+    def read_text(self, path: str, encoding: str = "utf-8") -> str:
+        return self._accessor.read_text(path, encoding)
+
+    def get_file_extension(self, path: str) -> str:
+        return self._accessor.get_file_extension(path)
 
     # --- command operations(side-effect) ---
     def copy(self, source: str, destination: str, overwrite: bool = False, create_parents: bool = True) -> str:
@@ -31,4 +37,4 @@ class Storage(StoragePort):
         return self._operator.delete(path, recursive)
 
     def move(self, source: str, destination: str, overwrite: bool = False, create_parents: bool = True) -> str:
-        return self.operator.move(source, destination, overwrite, create_parents)
+        return self._operator.move(source, destination, overwrite, create_parents)

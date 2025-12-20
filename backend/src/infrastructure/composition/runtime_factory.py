@@ -110,13 +110,3 @@ class RuntimeFactory:
         cls = TaggerAdapterRegistry[config.adapter_key]
 
         return cls.from_config(config)
-
-    def create_image_loader(self):
-        """画像ローダー
-
-        NOTE: 現状は設定不要で、常にPILImageLoaderを使用する。
-        将来的に異なる実装が必要になった場合は、設定とレジストリを追加する。
-        """
-        from infrastructure.image_loader.pil import PILImageLoader
-
-        return PILImageLoader()

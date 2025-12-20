@@ -1,21 +1,56 @@
 """新規画像登録サービス"""
 
+from dataclasses import dataclass
 from logging import getLogger
-from pathlib import Path
 from typing import Final
 
 import common.concurrency.parallel as parallel
 
-from application.image_loader import ImageLoader
+from application.service.image_deduplication import ImageDeduplicationService
 from application.service.image_metadata_extractor import ImageMetadataExtractor
+from application.service.tagging_result_classifier import TaggingResultClassifier
+from application.storage.ports import Storage
+from domain.entities.images import ImageEntry
 from domain.entities.model_tag import ModelTagEntries
 from domain.repositories.unit_of_work import UnitOfWorkProtocol
-from domain.services.image_deduplication import ImageDeduplicationService
-from domain.services.tagging_result_classifier import TaggingResultClassifier
+from domain.tagger.result import TaggerResult
 from domain.tagger.tagger import Tagger
+from domain.value_objects.image_hash import ImageHash
 
 
 logger = getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class _ImageEntryBinaryPair:
+    """画像エントリーと画像バイナリのペア"""
+
+    entry: ImageEntry
+    binary: bytes
+
+
+@dataclass(frozen=True)
+class _ImageEntryBinaryPairs:
+    """画像エントリーと画像バイナリのペアのリスト"""
+
+    pairs: list[_ImageEntryBinaryPair]
+
+    @property
+    def entries(self) -> list[ImageEntry]:
+        return [pair.entry for pair in self.pairs]
+
+    @property
+    def binaries(self) -> list[bytes]:
+        return [pair.binary for pair in self.pairs]
+
+    def filter_by_entry_hashes(self, allowed_hashes: set[ImageHash]) -> "_ImageEntryBinaryPairs":
+        return _ImageEntryBinaryPairs([pair for pair in self.pairs if pair.entry.hash in allowed_hashes])
+
+    def exclude_none_entries(self) -> "_ImageEntryBinaryPairs":
+        return _ImageEntryBinaryPairs([pair for pair in self.pairs if pair.entry is not None])
+
+    def __iter__(self):
+        return iter(self.pairs)
 
 
 class RegisterNewImageUsecase:
@@ -27,7 +62,7 @@ class RegisterNewImageUsecase:
         self,
         unit_of_work: UnitOfWorkProtocol,
         tagger: Tagger,
-        image_loader: ImageLoader,
+        storage: Storage,
     ) -> None:
         """RegisterNewImageUsecaseを初期化する
 
@@ -36,21 +71,28 @@ class RegisterNewImageUsecase:
                 - images(ImagesRepository): 画像リポジトリ
                 - model_tag(ModelTagRepository): モデルタグリポジトリ
             tagger(Tagger): タグ付けモデル
-            image_loader(ImageLoader): 画像ローダー
+            storage(Storage): ストレージ
         """
         self.unit_of_work = unit_of_work.subset(self.REQUIRED_REPOSITORIES)
         self.tagger = tagger
-        self.image_loader = image_loader
+        self.storage = storage
 
-    def handle(self, image_files: list[Path], n_workers: int = 8) -> None:
+    def _extract_metadata(self, image_file: str) -> _ImageEntryBinaryPair:
+        image_binary = self.storage.read_binary(image_file)
+        image_entry = ImageMetadataExtractor(storage=self.storage).extract_from_file(image_file, image_binary)
+        return _ImageEntryBinaryPair(entry=image_entry, binary=image_binary)
+
+    def _tag(self, image_binary: bytes) -> TaggerResult:
+        return self.tagger.tag(image_binary)
+
+    def handle(self, image_files: list[str], n_workers: int = 8) -> None:
         """画像ディレクトリ内のすべての画像を登録する
 
         Args:
-            image_files(list[Path]): 画像ファイルのパスのリスト
+            image_files(list[str]): 画像ファイルのパスのリスト
             n_workers(int): タグ付けの並列処理の最大並列数
 
         Raises:
-            UnsupportedFileTypeError: サポートされていないファイル形式の画像があった場合
             TaggingError: タグ付けに失敗した場合
         """
         if not image_files:
@@ -58,24 +100,40 @@ class RegisterNewImageUsecase:
             return
         logger.info("total input image files: %d", len(image_files))
 
-        # 1. メタデータ抽出とImageEntry作成
-        image_entries = ImageMetadataExtractor(image_loader=self.image_loader).extract_from_files(image_files)
-        if not image_entries:
+        # 1. バイナリデータを読み込み、メタデータを抽出する
+        pairs = parallel.execute(
+            func=self._extract_metadata,
+            args_list=[(image_file,) for image_file in image_files],
+            n_workers=n_workers,
+            strategy=parallel.ExecutionStrategy.THREAD,
+            show_progress=True,
+            description="Extracting metadata",
+            raise_on_error=False,
+        )
+        pairs = _ImageEntryBinaryPairs([pair for pair in pairs if not isinstance(pair, Exception)])
+        pairs = pairs.exclude_none_entries()
+
+        # 2. メタデータ抽出できなかったファイルを除外
+        if not pairs.entries:
             logger.warning("no valid image entries")
             return
 
-        # 2. 既存画像の重複チェック
-        existing_image_entries = self.unit_of_work["images"].find_by_hashes([entry.hash for entry in image_entries])
-        existing_hash_set = {entry.hash for entry in existing_image_entries}
-        image_entries = ImageDeduplicationService.filter_duplicates(image_entries, existing_hash_set)
-        if not image_entries:
-            logger.warning("no valid image entries after duplicate check")
+        # 3. 既存画像の重複チェック
+        non_duplicate_image_entries = ImageDeduplicationService.filter_duplicates(
+            image_entries=pairs.entries,
+            images_repo=self.unit_of_work["images"],
+        )
+        if not non_duplicate_image_entries:
+            logger.info("no image entries after duplicate check")
             return
 
-        # 3. タグ付け処理
+        # 4. 重複を除外した画像のペアデータを取得
+        pairs = pairs.filter_by_entry_hashes({entry.hash for entry in non_duplicate_image_entries})
+
+        # 5. タグ付け処理
         tagger_results_raw = parallel.execute(
-            func=self.tagger.tag_image_file,
-            args_list=[(str(image_entry.file_location),) for image_entry in image_entries],
+            func=self._tag,
+            args_list=[(pair.binary,) for pair in pairs],
             n_workers=n_workers,
             strategy=parallel.ExecutionStrategy.THREAD,
             show_progress=True,
@@ -83,19 +141,18 @@ class RegisterNewImageUsecase:
             raise_on_error=False,
         )
 
-        # 4. タグ付けできた画像のみを抽出（ExceptionをNoneに変換）
+        # 6. タグ付けできた画像のみを抽出（ExceptionをNoneに変換）
         tagger_results = [result if not isinstance(result, Exception) else None for result in tagger_results_raw]
-        outcome = TaggingResultClassifier.classify(image_entries, tagger_results)
+        outcome = TaggingResultClassifier.classify(pairs.entries, tagger_results)
         if not outcome.has_any_success:
             logger.warning("no valid tagged images after filtering")
             return
         logger.info("tagging result: %s", outcome.counts)
 
-        # 5. データベースへの永続化
+        # 7. データベースへの永続化
         with self.unit_of_work:
             # images table insert
             image_ids = self.unit_of_work["images"].insert([result.image_entry for result in outcome.success])
-            print(image_ids)
 
             # model_tag table insert
             model_tag_entries_list = [

@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Protocol
 
 from domain.tagger.result import TaggerResult
@@ -9,11 +8,11 @@ class Tagger(Protocol):
 
     def initialize(self) -> None: ...
 
-    def tag_image_file(self, image_file: str | Path) -> TaggerResult:
-        """画像ファイルに対してタグ推論 + カテゴリ分類まで行う
+    def tag(self, image_binary: bytes) -> TaggerResult:
+        """画像バイナリに対してタグ推論 + カテゴリ分類まで行う
 
         Args:
-            image_file(str | Path): 画像ファイル
+            image_binary(bytes): 画像バイナリ
 
         Returns:
             TaggerResult: タグ推論結果

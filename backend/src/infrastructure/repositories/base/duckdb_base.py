@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import duckdb
 
 from infrastructure.configs.repository import RepositoryConfig
@@ -8,9 +6,9 @@ from infrastructure.configs.repository import RepositoryConfig
 class BaseDuckDBRepository:
     """DuckDB基底リポジトリ"""
 
-    def __init__(self, database_file: str | Path, table_name: str) -> None:
-        self._conn = duckdb.connect(str(database_file))
-        self._database_file = Path(database_file)
+    def __init__(self, database_file: str, table_name: str) -> None:
+        self._conn = duckdb.connect(database_file)
+        self._database_file = database_file
         self._table_name = table_name
 
     @classmethod
@@ -28,7 +26,7 @@ class BaseDuckDBRepository:
         self._conn.rollback()
 
     @property
-    def database_file(self) -> Path:
+    def database_file(self) -> str:
         return self._database_file
 
     @property

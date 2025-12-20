@@ -2,11 +2,8 @@
 
 import logging
 
-from pathlib import Path
-
 from application.usecases.register_new_image import RegisterNewImageUsecase
 from infrastructure.composition.runtime_factory import RuntimeFactory
-from infrastructure.storage import StoragePath
 from interface.config import runtime_config
 
 
@@ -21,19 +18,19 @@ class RegisterNewImageCLI:
         factory = RuntimeFactory(config)
 
         unit_of_work = factory.create_unit_of_work()
+        self.storage = factory.create_storage()
         tagger = factory.create_tagger()
-        tagger.initialize()
-        image_loader = factory.create_image_loader()
+        tagger.initialize(storage=self.storage)
 
         self.usecase = RegisterNewImageUsecase(
             unit_of_work=unit_of_work,
             tagger=tagger,
-            image_loader=image_loader,
+            storage=self.storage,
         )
 
-    def run(self, image_dir: str | Path, n_workers: int = 8, recursive: bool = False) -> None:
+    def run(self, image_dir: str, n_workers: int = 8, recursive: bool = False) -> None:
         """画像ディレクトリ内のすべての画像を登録する"""
-        image_files = StoragePath(image_dir).list_files(recursive=recursive)
+        image_files = self.storage.list_files(image_dir, recursive=recursive)
         self.usecase.handle(image_files, n_workers=n_workers)
 
 

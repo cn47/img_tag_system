@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from pathlib import Path
 
 from common.path.project import get_root
 from infrastructure.registry.config import StorageConfigRegistry
@@ -16,12 +15,11 @@ class StorageConfig:
 
 @StorageConfigRegistry.register("local")
 @dataclass(frozen=True)
-class LocalFileSystemConfig(StorageConfig):
-    """ローカルファイルシステムの設定"""
+class LocalStorageConfig(StorageConfig):
+    """ローカルストレージの設定"""
 
-    root_dir: Path = field(default_factory=get_root)
-    # root_dir: Path = Path("data/storage/local")
+    root_dir: str = field(default_factory=lambda: str(get_root()))
 
     @property
     def adapter_key(self) -> str:
-        return "local_file_system"
+        return "local"

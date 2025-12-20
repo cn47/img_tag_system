@@ -10,10 +10,10 @@ from infrastructure.registry.adapter import StorageAdapterRegistry
 
 
 if TYPE_CHECKING:
-    from infrastructure.configs.storage import LocalFileSystemConfig
+    from infrastructure.configs.storage import LocalStorageConfig
 
 
-@StorageAdapterRegistry.register("local_file_system", "accessor")
+@StorageAdapterRegistry.register("local", "accessor")
 class LocalStorageAccessor(StorageAccessor):
     """Query操作"""
 
@@ -21,7 +21,7 @@ class LocalStorageAccessor(StorageAccessor):
         self.root_dir = str(root_dir)
 
     @classmethod
-    def from_config(cls, config: "LocalFileSystemConfig") -> "LocalStorageAccessor":
+    def from_config(cls, config: "LocalStorageConfig") -> "LocalStorageAccessor":
         return cls(root_dir=str(config.root_dir))
 
     def _scan_fast(self, path: str) -> Generator[str, None, None]:
@@ -57,12 +57,19 @@ class LocalStorageAccessor(StorageAccessor):
     def get_size(self, path: str | Path) -> int:
         return Path(path).stat().st_size
 
-    def read_file(self, path: str | Path, mode: str = "r") -> str | bytes:
-        with Path(path).open(mode) as fp:
+    def read_binary(self, path: str | Path) -> bytes:
+        with Path(path).open("rb") as fp:
             return fp.read()
 
+    def read_text(self, path: str | Path, encoding: str = "utf-8") -> str:
+        with Path(path).open("r", encoding=encoding) as fp:
+            return fp.read()
 
-@StorageAdapterRegistry.register("local_file_system", "operator")
+    def get_file_extension(self, path: str | Path) -> str:
+        return Path(path).suffix.lower().lstrip(".")
+
+
+@StorageAdapterRegistry.register("local", "operator")
 class LocalStorageOperator(StorageOperator):
     """Command操作"""
 
@@ -70,7 +77,7 @@ class LocalStorageOperator(StorageOperator):
         self.root_dir = str(root_dir)
 
     @classmethod
-    def from_config(cls, config: "LocalFileSystemConfig") -> "LocalStorageOperator":
+    def from_config(cls, config: "LocalStorageConfig") -> "LocalStorageOperator":
         return cls(root_dir=str(config.root_dir))
 
     def copy(
