@@ -34,11 +34,11 @@ class ImagesRepository(Protocol):
         """
         ...
 
-    def remove(self, image_id: int) -> None:
+    def remove(self, image_ids: int | list[int]) -> None:
         """主キーで削除
 
         Args:
-            image_id(int): 画像ID
+            image_ids(int | list[int]): 画像IDまたは画像IDのリスト
 
         Returns:
             None

@@ -68,9 +68,13 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
 
         return [row[0] for row in result]
 
-    def remove(self, image_id: int) -> None:
-        q = f"DELETE FROM {self.table_name} WHERE image_id = ?"
-        self.conn.execute(q, (image_id,))
+    def remove(self, image_ids: int | list[int]) -> None:
+        if not image_ids:
+            raise ValueError("image_ids must be a list of integers and not empty")
+        image_ids = [image_ids] if isinstance(image_ids, int) else image_ids
+
+        q = f"DELETE FROM {self.table_name} WHERE image_id IN ({self.sql_placeholders(image_ids)})"
+        self.conn.execute(q, image_ids)
 
     def get(self, image_id: int) -> ImageEntry | None:
         q = f"SELECT * FROM {self.table_name} WHERE image_id = ?"
@@ -80,9 +84,7 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
     def find_by_hashes(self, hash_values: ImageHash | list[ImageHash]) -> list[ImageEntry]:
         if not hash_values:
             return []
-
-        if isinstance(hash_values, ImageHash):
-            hash_values = [hash_values]
+        hash_values = [hash_values] if isinstance(hash_values, ImageHash) else hash_values
 
         hash_strings = [str(hash_value) for hash_value in hash_values]
         q = f"SELECT * FROM {self.table_name} WHERE hash IN ({self.sql_placeholders(hash_strings)})"
@@ -90,6 +92,10 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
         return [self._row_to_entity(row) for row in result]
 
     def update(self, entities: list[ImageEntry]) -> None:
+        if not entities:
+            raise ValueError("entities must be a list of ImageEntry and not empty")
+        entities = [entities] if isinstance(entities, ImageEntry) else entities
+
         df = pd.DataFrame([entry.to_dict() for entry in entities])
         self.conn.register("img_df", df)
         _cols = ["file_location", "width", "height", "file_type", "file_size"]
