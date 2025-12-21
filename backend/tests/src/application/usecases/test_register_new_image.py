@@ -187,11 +187,11 @@ class TestRegisterNewImageUsecaseValid:
     """正常系のテスト
 
     テストケース:
-        - 1件の画像を登録する
-        - 複数件の画像を登録する
-        - 空の画像ファイルリストが入力される
-        - タグ付け結果に異常ケースが含まれていた場合の処理スキップ
-            - タグ付け結果が空（すべてのタグが閾値を下回った場合）
+        - 1件の画像を登録する: test_handle_one_image
+        - 複数件の画像を登録する: test_handle_many_images
+        - 空の画像ファイルリストが入力される: test_empty_image_files_input
+        - タグ付け結果に異常ケースが含まれていた場合の処理スキップ: test_tagging_result_with_abnormal_cases
+            - タグ付け結果が空（すべてのタグ付け結果が閾値を下回った場合）
             - タグ付けが失敗した場合
     """
 
@@ -382,8 +382,7 @@ class TestRegisterNewImageUsecaseInvalid:
     """異常系のテスト
 
     テストケース:
-        - サポートされていないファイル形式の画像が入力される
-        - 画像ファイルが存在しない
+        - サポートされていないファイル形式の画像が入力される: test_unsupported_file_type_input
     """
 
     def test_unsupported_file_type_input(

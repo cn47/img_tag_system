@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-import common.concurrency.parallel as parallel
+from common.concurrency import parallel
 
 
 # ----------------------------
@@ -97,20 +97,20 @@ class TestExecuteParallelValid:
     """正常系のテスト
 
     テストケース:
-        - argsのみを使用する場合
-        - kwargsのみを使用する場合
-        - argsとkwargsの両方を使用する場合
-        - 異なる引数の組み合わせ
-        - 引数なしのタスク
-        - 空のリストの場合
-        - ProcessPoolExecutorを使用する場合
-        - 結果の順序が入力の順序と一致する
-        - 大量のタスクを処理する場合
-        - 単一ワーカーの場合
-        - 進捗バーの表示/非表示
-        - カスタム説明文の設定
-        - args_listのみでkwargs_listがNoneの場合
-        - kwargs_listのみでargs_listがNoneの場合
+        - argsのみを使用する場合: test_args_only
+        - kwargsのみを使用する場合: test_kwargs_only
+        - argsとkwargsの両方を使用する場合: test_args_and_kwargs
+        - 異なる引数の組み合わせ: test_different_arguments
+        - 引数なしのタスク: test_no_args_task
+        - 空のリストの場合: test_empty_list
+        - ProcessPoolExecutorを使用する場合: test_process_strategy
+        - 結果の順序が入力の順序と一致する: test_result_order
+        - 大量のタスクを処理する場合: test_large_number_of_tasks
+        - 単一ワーカーの場合: test_single_worker
+        - 進捗バーの表示/非表示: test_show_progress_true
+        - カスタム説明文の設定: test_custom_description
+        - args_listのみでkwargs_listがNoneの場合: test_args_list_only_with_none_kwargs
+        - kwargs_listのみでargs_listがNoneの場合: test_kwargs_list_only_with_none_args
     """
 
     def test_args_only(
@@ -370,11 +370,11 @@ class TestExecuteParallelInvalid:
     """異常系のテスト
 
     テストケース:
-        - args_listとkwargs_listの両方がNoneの場合
-        - args_listとkwargs_listの長さが異なる場合
-        - エラーハンドリング（raise_on_error=False）
-        - エラーハンドリング（raise_on_error=True）
-        - 成功とエラーが混在する場合
+        - args_listとkwargs_listの両方がNoneの場合: test_empty_args_and_kwargs
+        - args_listとkwargs_listの長さが異なる場合: test_different_length_args_and_kwargs
+        - エラーハンドリング（raise_on_error=False）: test_error_handling_false
+        - エラーハンドリング（raise_on_error=True）: test_error_handling_raise
+        - 成功とエラーが混在する場合: test_mixed_success_and_error
     """
 
     def test_empty_args_and_kwargs(self) -> None:
