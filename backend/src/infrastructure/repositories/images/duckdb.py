@@ -33,11 +33,11 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
             updated_at=updated_at,
         )
 
-    def insert(self, entries: ImageEntry | list[ImageEntry]) -> list[int]:
+    def add(self, entries: ImageEntry | list[ImageEntry]) -> list[int]:
         entries = [entries] if isinstance(entries, ImageEntry) else entries
-        return self._bulk_insert(entries)
+        return self._bulk_add(entries)
 
-    def _bulk_insert(self, entries: list[ImageEntry]) -> list[int]:
+    def _bulk_add(self, entries: list[ImageEntry]) -> list[int]:
         """複数の画像をまとめてBULK INSERTして主キーのリストを返す
 
         Args:
@@ -58,19 +58,17 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
             _cols = "file_location, width, height, file_type, hash, file_size"
             q = f"INSERT INTO {self.table_name} ({_cols}) SELECT {_cols} FROM img_df RETURNING image_id"
             result = self.conn.execute(q).fetchall()
-            self.conn.unregister("img_df")
-            return [row[0] for row in result]
         except duckdb.ConstraintException as e:
             if "Duplicate key" in str(e) and "violates unique constraint" in str(e):
                 msg = "Duplicate hash detected during bulk insert"
                 raise DuplicateImageError(msg) from e
             raise InfrastructureError(e) from e
+        finally:
+            self.conn.unregister("img_df")
 
-    def update_file_location(self, image_id: int, file_location: FileLocation) -> None:
-        q = f"UPDATE {self.table_name} SET file_location = ?, updated_at = CURRENT_TIMESTAMP WHERE image_id = ?"
-        self.conn.execute(q, (str(file_location), image_id))
+        return [row[0] for row in result]
 
-    def delete(self, image_id: int) -> None:
+    def remove(self, image_id: int) -> None:
         q = f"DELETE FROM {self.table_name} WHERE image_id = ?"
         self.conn.execute(q, (image_id,))
 
@@ -79,31 +77,39 @@ class DuckDBImagesRepository(BaseDuckDBRepository, ImagesRepository, DebuggableR
         result = self.conn.execute(q, (image_id,)).fetchone()
         return self._row_to_entity(result) if result else None
 
-    def find_by_hash(self, hash_value: ImageHash) -> ImageEntry | None:
-        result = self.find_by_hashes([hash_value])
-        return result[0] if result else None
-
-    def find_by_hashes(self, hash_values: list[ImageHash]) -> list[ImageEntry]:
+    def find_by_hashes(self, hash_values: ImageHash | list[ImageHash]) -> list[ImageEntry]:
         if not hash_values:
             return []
+
+        if isinstance(hash_values, ImageHash):
+            hash_values = [hash_values]
 
         hash_strings = [str(hash_value) for hash_value in hash_values]
         q = f"SELECT * FROM {self.table_name} WHERE hash IN ({self.sql_placeholders(hash_strings)})"
         result = self.conn.execute(q, hash_strings).fetchall()
         return [self._row_to_entity(row) for row in result]
 
-    def list_file_locations(self) -> list[tuple[int, FileLocation]]:
-        q = f"SELECT image_id, file_location FROM {self.table_name}"
-        result = self.conn.execute(q).fetchall()
-        if not result:
-            return []
-        return [(image_id, FileLocation(file_location)) for image_id, file_location in result]
+    def update(self, entities: list[ImageEntry]) -> None:
+        df = pd.DataFrame([entry.to_dict() for entry in entities])
+        self.conn.register("img_df", df)
+        _cols = ["file_location", "width", "height", "file_type", "file_size"]
+        _cols = ", ".join([f"{_c}=img_df.{_c}" for _c in _cols])
+        try:
+            q = f"""
+            UPDATE {self.table_name} SET {_cols}, updated_at = CURRENT_TIMESTAMP
+            FROM img_df
+            WHERE {self.table_name}.image_id = img_df.image_id
+            """
+            self.conn.execute(q)
+        finally:
+            self.conn.unregister("img_df")
 
-    def exists(self, image_id: int) -> bool:
+    def contains(self, image_id: int) -> bool:
         q = f"SELECT COUNT(*) FROM {self.table_name} WHERE image_id = ?"
         result = self.conn.execute(q, (image_id,)).fetchone()
         return result[0] > 0 if result else False
 
+    # ---- For Debugging ----
     def count(self) -> int:
         q = f"SELECT COUNT(*) FROM {self.table_name}"
         result = self.conn.execute(q).fetchone()

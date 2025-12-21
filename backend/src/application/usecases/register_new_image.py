@@ -157,15 +157,15 @@ class RegisterNewImageUsecase:
 
         # 7. データベースへの永続化
         with self.unit_of_work:
-            # images table insert
-            image_ids = self.unit_of_work["images"].insert([result.image_entry for result in outcome.success])
+            # images table add
+            image_ids = self.unit_of_work["images"].add([result.image_entry for result in outcome.success])
 
-            # model_tag table insert
+            # model_tag table add
             model_tag_entries_list = [
                 ModelTagEntries.from_tagger_result(image_id=image_id, tags=result.tagger_result)
                 for image_id, result in zip(image_ids, outcome.success, strict=True)
             ]
-            self.unit_of_work["model_tag"].insert(model_tag_entries_list)
+            self.unit_of_work["model_tag"].add(model_tag_entries_list)
 
             logger.debug("total registered images: %d", len(image_ids))
             logger.debug("total registered model_tag_entries: %d", len(model_tag_entries_list))

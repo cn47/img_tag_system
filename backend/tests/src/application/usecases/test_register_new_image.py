@@ -32,10 +32,10 @@ def mock_unit_of_work() -> UnitOfWorkProtocol:
     # リポジトリのモック
     images_repo = MagicMock()
     images_repo.find_by_hashes = MagicMock(return_value=[])
-    images_repo.insert = MagicMock(return_value=[1])
+    images_repo.add = MagicMock(return_value=[1])
 
     model_tag_repo = MagicMock()
-    model_tag_repo.insert = MagicMock()
+    model_tag_repo.add = MagicMock()
 
     uow.__getitem__ = MagicMock(side_effect=lambda key: {"images": images_repo, "model_tag": model_tag_repo}[key])
     uow.subset = MagicMock(return_value=uow)
@@ -173,14 +173,14 @@ def assert_metadata_extraction_call_count(storage: Storage, expected_count: int)
         assert storage.get_file_extension.call_count == expected_count
 
 
-def assert_insert_call_count(repository: MagicMock, expected_count: int) -> None:
-    """insertの呼び出し回数と引数の数を検証するヘルパー関数"""
+def assert_add_call_count(repository: MagicMock, expected_count: int) -> None:
+    """addの呼び出し回数と引数の数を検証するヘルパー関数"""
     if expected_count == 0:
-        repository.insert.assert_not_called()
+        repository.add.assert_not_called()
     else:
-        repository.insert.assert_called_once()
-        insert_args = repository.insert.call_args[0][0]
-        assert len(insert_args) == expected_count
+        repository.add.assert_called_once()
+        add_args = repository.add.call_args[0][0]
+        assert len(add_args) == expected_count
 
 
 class TestRegisterNewImageUsecaseValid:
@@ -232,8 +232,8 @@ class TestRegisterNewImageUsecaseValid:
         assert mock_tagger.tag.called
 
         # 4.データベースへの永続化が呼ばれたか
-        assert_insert_call_count(images_repo, 1)
-        assert_insert_call_count(model_tag_repo, 1)
+        assert_add_call_count(images_repo, 1)
+        assert_add_call_count(model_tag_repo, 1)
 
         # 5. コミットが呼ばれたか
         mock_unit_of_work.__exit__.assert_called_once()
@@ -259,7 +259,7 @@ class TestRegisterNewImageUsecaseValid:
 
         # リポジトリのモック設定（複数のIDを返す）
         images_repo = mock_unit_of_work["images"]
-        images_repo.insert.return_value = [1, 2, 3]
+        images_repo.add.return_value = [1, 2, 3]
         model_tag_repo = mock_unit_of_work["model_tag"]
 
         # 実行
@@ -273,8 +273,8 @@ class TestRegisterNewImageUsecaseValid:
         assert mock_tagger.tag.call_count == 3
 
         # 3. データベースへの永続化が呼ばれたか
-        assert_insert_call_count(images_repo, 3)
-        assert_insert_call_count(model_tag_repo, 3)
+        assert_add_call_count(images_repo, 3)
+        assert_add_call_count(model_tag_repo, 3)
 
         # 4. コミットが呼ばれたか
         mock_unit_of_work.__exit__.assert_called_once()
@@ -306,19 +306,19 @@ class TestRegisterNewImageUsecaseValid:
 
         assert not mock_tagger.tag.called
 
-        assert_insert_call_count(images_repo, 0)
-        assert_insert_call_count(model_tag_repo, 0)
+        assert_add_call_count(images_repo, 0)
+        assert_add_call_count(model_tag_repo, 0)
 
         assert not mock_unit_of_work.__exit__.called
 
     @pytest.mark.parametrize(
-        "outcome, expected_insert_count",
+        "outcome, expected_add_count",
         [
             (TaggingOutcome(success=[], failure=[], empty=[]), 0),
             (TaggingOutcome(success=[], failure=[MagicMock()], empty=[]), 0),
             (TaggingOutcome(success=[], failure=[], empty=[MagicMock()]), 0),
             (TaggingOutcome(success=[make_tagged_image_entry()], failure=[], empty=[MagicMock()]), 1),
-            # NOTE: 重複画像除外処理を入れてるからこれはテストできない(insert数が1になってしまう)
+            # NOTE: 重複画像除外処理を入れてるからこれはテストできない(add数が1になってしまう)
             # (TaggingOutcome(success=[make_tagged_image_entry()] * 3, failure=[MagicMock()], empty=[MagicMock()]), 3),
         ],
         ids=[
@@ -333,7 +333,7 @@ class TestRegisterNewImageUsecaseValid:
         self,
         monkeypatch: pytest.MonkeyPatch,
         outcome: TaggingOutcome,
-        expected_insert_count: int,
+        expected_add_count: int,
         image_files_one: list[str],
         mock_unit_of_work: UnitOfWorkProtocol,
         mock_storage: Storage,
@@ -368,11 +368,11 @@ class TestRegisterNewImageUsecaseValid:
         assert_metadata_extraction_call_count(mock_storage, 1)
 
         # 2. データベースへの永続化が呼ばれたか
-        assert_insert_call_count(images_repo, expected_insert_count)
-        assert_insert_call_count(model_tag_repo, expected_insert_count)
+        assert_add_call_count(images_repo, expected_add_count)
+        assert_add_call_count(model_tag_repo, expected_add_count)
 
         # 4. コミットが呼ばれたか
-        if expected_insert_count > 0:
+        if expected_add_count > 0:
             mock_unit_of_work.__exit__.assert_called_once()
         else:
             mock_unit_of_work.__exit__.assert_not_called()
@@ -425,8 +425,8 @@ class TestRegisterNewImageUsecaseInvalid:
         # 2. データベースへの永続化が呼ばれたか
         # 画像は挿入されない（メタデータ抽出失敗によりフィルタリングされる）
         # タグ付けも呼ばれない（image_entriesが空なので）
-        assert_insert_call_count(images_repo, 0)
-        assert_insert_call_count(model_tag_repo, 0)
+        assert_add_call_count(images_repo, 0)
+        assert_add_call_count(model_tag_repo, 0)
 
         # 3. コミットが呼ばれたか
         mock_unit_of_work.__exit__.assert_not_called()

@@ -17,10 +17,10 @@ collectionオブジェクトのように扱えるようにする
 class ImagesRepository(Protocol):
     """imagesテーブルのリポジトリ"""
 
-    def insert(self, entries: ImageEntry | list[ImageEntry]) -> list[int]:
-        """1件の画像または複数の画像をまとめてINSERTして主キーのリストを返す
+    def add(self, entries: ImageEntry | list[ImageEntry]) -> list[int]:
+        """1件の画像または複数の画像をまとめてADDして主キーのリストを返す
 
-        内部でentriesをリストに変換してBULK INSERTを呼び出す。
+        内部でentriesをリストに変換してBULK ADDを呼び出す。
 
         Args:
             entries(ImageEntry | list[ImageEntry]): 1件の画像または複数の画像
@@ -34,17 +34,7 @@ class ImagesRepository(Protocol):
         """
         ...
 
-    def update_file_location(self, image_id: int, file_location: FileLocation) -> None:
-        """ファイルパスを更新
-
-        Args:
-            image_id(int): 画像ID
-            file_location(FileLocation): ファイルパス
-
-        """
-        ...
-
-    def delete(self, image_id: int) -> None:
+    def remove(self, image_id: int) -> None:
         """主キーで削除
 
         Args:
@@ -66,7 +56,7 @@ class ImagesRepository(Protocol):
         """
         ...
 
-    def find_by_hash(self, hash_value: ImageHash) -> ImageEntry | None:
+    def find_by_hashes(self, hash_values: ImageHash | list[ImageHash]) -> list[ImageEntry]:
         """ハッシュで1件取得
 
         内部でhash_valueをリストに変換してfind_by_hashesを呼び出す。
@@ -80,29 +70,18 @@ class ImagesRepository(Protocol):
         """
         ...
 
-    def find_by_hashes(self, hash_values: list[ImageHash]) -> list[ImageEntry]:
-        """ハッシュのリストで複数件取得
+    def update(self, entities: list[ImageEntry]) -> None:
+        """複数の画像をまとめてUPDATE
 
         Args:
-            hash_values(list[ImageHash]): ハッシュのリスト
+            entities(list[ImageEntry]): 複数の画像
 
         Returns:
-            list[ImageEntry]: 画像のリスト
-        """
-        ...
-
-    def list_file_locations(self) -> list[tuple[int, FileLocation]]:
-        """画像IDとファイルパスのペアリスト
-
-        Args:
             None
-
-        Returns:
-            list[tuple[int, FileLocation]]: 画像IDとファイルパスのペアリスト
         """
         ...
 
-    def exists(self, image_id: int) -> bool:
+    def contains(self, image_id: int) -> bool:
         """主キーが存在するか
 
         Args:
